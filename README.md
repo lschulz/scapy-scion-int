@@ -14,6 +14,7 @@ Supported headers:
 - INT-MD over UDP
 - In-band Telemetry over SCION (prototype)
 
+Some SCION tools built with Scapy are available in [tools](/tools).
 
 ### Dependencies
 Python 3 and [Scapy](https://scapy.net/) are the only dependencies. IPython is recommended for the
