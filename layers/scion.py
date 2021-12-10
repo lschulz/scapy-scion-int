@@ -5,9 +5,13 @@ https://scion.docs.anapaya.net/en/latest/protocols/extension-header.html
 """
 
 import array
+import base64
+import struct
 from datetime import datetime, timezone
 from typing import Optional, Tuple, Type
 
+from cryptography.hazmat.primitives import cmac
+from cryptography.hazmat.primitives.ciphers import algorithms
 from fields import AsnField, ExpiryTime, UnixTimestamp
 from scapy.fields import (BitEnumField, BitField, BitScalingField,
                           ByteEnumField, ByteField, FieldLenField, FlagsField,
@@ -134,6 +138,63 @@ class SCIONPath(Packet):
 
     def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
         return b"", s
+
+    class VerificationError(Exception):
+        def __str__(self):
+            return "Hop field verification failed"
+
+    def _verify_hop_field(self, beta: int, key: str):
+        ts = int(self.InfoFields[self.CurrINF].Timestamp.timestamp())
+        exp_time = self.HopFields[self.CurrHF].ExpTime
+        ingress = self.HopFields[self.CurrHF].ConsIngress
+        egress = self.HopFields[self.CurrHF].ConsEgress
+        cmac_input = struct.pack("!HHIBBHHH", 0, beta, ts, 0, exp_time, ingress, egress, 0)
+        c = cmac.CMAC(algorithms.AES(base64.b64decode(key)))
+        c.update(cmac_input)
+        expected = c.finalize()
+        if self.HopFields[self.CurrHF].MAC.to_bytes(6, byteorder='big') != expected[:6]:
+            raise SCIONPath.VerificationError()
+
+    def egress(self, key: str) -> None:
+        """Perform egress processing on the path as a border router would.
+        :param key: Base64-encoded hop verification key
+        :raises: SCIONPath.VerificationError: Hop field verification failed.
+        """
+        beta = self.InfoFields[self.CurrINF].SegID
+        self._verify_hop_field(beta, key)
+
+        if self.InfoFields[self.CurrINF].Flags.C:
+            sigma_trunc = self.HopFields[self.CurrHF].MAC >> 32
+            self.InfoFields[self.CurrINF].SegID = beta ^ sigma_trunc
+
+        self.CurrHF += 1
+
+    def ingress(self, key: str) -> None:
+        """Perform ingress processing on the path as a border router would.
+        :param key: Base64-encoded hop verification key
+        :raises: SCIONPath.VerificationError: Hop field verification failed.
+        """
+        if not self.InfoFields[self.CurrINF].Flags.C:
+            sigma_trunc = self.HopFields[self.CurrHF].MAC >> 32
+            beta = self.InfoFields[self.CurrINF].SegID ^ sigma_trunc
+        else:
+            beta = self.InfoFields[self.CurrINF].SegID
+
+        self._verify_hop_field(beta, key)
+
+        if not self.InfoFields[self.CurrINF].Flags.C:
+            self.InfoFields[self.CurrINF].SegID = beta
+
+        # Switch to the next path segment if necessary
+        seg_offsets = [
+            self.Seg0Len,
+            self.Seg0Len + self.Seg1Len,
+            self.Seg0Len + self.Seg1Len + self.Seg2Len
+        ]
+        next_hf = self.CurrHF + 1
+        if next_hf < seg_offsets[2] and next_hf == seg_offsets[self.CurrINF]:
+            self.CurrHF = next_hf
+            self.CurrINF += 1
 
 
 #########################

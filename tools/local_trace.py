@@ -4,9 +4,7 @@ import argparse
 import json
 import os
 import re
-import signal
 import socket
-import subprocess
 import sys
 import threading
 import time
@@ -17,12 +15,12 @@ import scapy.main
 from scapy.fields import IntField
 from scapy.layers.inet import IP, UDP
 from scapy.packet import Packet, bind_layers
-from scapy.sendrecv import AsyncSniffer, sniff
+from scapy.sendrecv import AsyncSniffer
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 from layers.scion import SCION
-from layers.scmp import SCMP
-from util import compare_layers
+from utils import capture_path, compare_layers
+
 
 TEST_PORT = 6500
 
@@ -71,42 +69,6 @@ def bind_scion_layer(brs: Mapping[str, Any]):
             _, port = iface["underlay"]["public"].split(":")
             bind_layers(UDP, SCION, sport=int(port))
             bind_layers(UDP, SCION, dport=int(port))
-
-
-def capture_path(scion: str, src_br: str, sciond: str, dest: str) -> SCION:
-    """Ping an AS and capture to echo request to extract the path from it.
-    :param scion: "scion" command to use for the ping.
-    :param src_br: Internal interface of a border router in the source AS.
-                   Example: "127.0.0.33:31010"
-    :param sciond: Address of sciond in the source AS.
-                   Example: "127.0.0.35:30255"
-    :param dest: Destination host in the format expected by "scion ping".
-                 Example: "3-ff00:0:7,127.0.0.1"
-    :returns: Captured SCION header with payload removed.
-    """
-    # Capture an echo request
-    ping = None
-    def ping_cb():
-        nonlocal ping
-        ping = subprocess.Popen([scion, "ping", "--sciond", sciond, dest])
-
-    br = src_br.split(":")
-    cap = sniff(iface="lo", count=1,
-        filter=f"dst {br[0]} and port {br[1]}",
-        lfilter=lambda pkt: pkt.haslayer(SCMP) and pkt[SCMP].Type==128,
-        started_callback=ping_cb)
-
-    ping.send_signal(signal.SIGINT)
-    ping.wait()
-
-    # Extract SCION header
-    p = cap[0][SCION]
-    p.remove_payload()
-    del p.NextHdr
-    del p.HdrLen
-    del p.PayloadLen
-
-    return p
 
 
 class PathSniffer():
@@ -196,6 +158,8 @@ def main():
     parser.add_argument("--dst", default="3-ff00:0:7", help="Destination AS")
     parser.add_argument("-c", "--count", type=int, default=1, help="Number of probes")
     parser.add_argument("-n", "--numerical", action="store_true", help="Show numerical addresses")
+    parser.add_argument("-p", "--select-path", action="store_true",
+        help="Pick a path interactively")
     parser.add_argument("-i", "--interactive", action="store_true",
         help="Start an interactive shell to inspect the probes in more detail")
     args = parser.parse_args()
@@ -215,8 +179,10 @@ def main():
     dest = args.dst + ",127.0.0.1"
 
     # Capture a valid SCION header from a call to "scion ping"
-    print("### Ping destination AS")
-    path = capture_path(str(args.scion / "bin/scion"), src_br, sciond, dest)
+    print("### Ping destination AS", flush=True) # Flush stream so that output from ping does not
+                                                 # get mixed in
+    ping_args = {'extra_args': ["-i"], 'timeout': None} if args.select_path else {}
+    path = capture_path(str(args.scion / "bin/scion"), src_br, sciond, dest, **ping_args)
 
     # Capture a probe packet after passing through every border router
     print("### Trace probe packet")
