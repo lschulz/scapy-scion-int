@@ -17,8 +17,11 @@ Supported headers:
 Some SCION tools built with Scapy are available in [tools](/tools).
 
 ### Dependencies
-Python 3 and [Scapy](https://scapy.net/) are the only dependencies. IPython is recommended for the
-interactive Scapy shell.
+- Python 3
+- [Scapy](https://scapy.net/)
+- Additional Python packages:
+    - cryptography
+- IPython is recommended for the interactive Scapy shell
 
 
 Getting Started: Craft and Send a SCION Packet
