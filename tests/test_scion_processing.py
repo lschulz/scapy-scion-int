@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 
 from scapy.layers.inet import UDP
-from scapy.packet import bind_layers
+from scapy.packet import bind_bottom_up
 from scapy.utils import rdpcap
 
 from layers.scion import SCION
@@ -22,9 +22,11 @@ class TestScionProcessing(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        for i in range(31000, 31100):
-            bind_layers(UDP, SCION, sport=i)
-            bind_layers(UDP, SCION, dport=i)
+        bind_bottom_up(UDP, SCION, dport=50000)
+        bind_bottom_up(UDP, SCION, sport=50000)
+        for port in range(31000, 31100):
+            bind_bottom_up(UDP, SCION, dport=port)
+            bind_bottom_up(UDP, SCION, sport=port)
 
     def test_path_processing(self):
         """Test ingress and egress processing of SCION paths including hop field validation."""

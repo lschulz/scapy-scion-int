@@ -7,12 +7,16 @@ from layers.scion import (SCION, AuthenticatorOption, EndToEndExt, HopByHopExt,
 from layers.scmp import SCMP
 from scapy.layers.inet import IP, UDP
 from scapy.layers.l2 import Ether
+from scapy.packet import bind_bottom_up
 
 
 class TestSCION(unittest.TestCase):
 
     def test_dissect(self):
         """Test dissecting SCION packets"""
+
+        bind_bottom_up(UDP, SCION, dport=50000)
+        bind_bottom_up(UDP, SCION, sport=50000)
 
         # SCION/BFD
         packet1 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00x&\xc3@\x00@\x11\x15\xa9\x7f\x00\x00\x05\x7f\x00\x00\x04\xc3P\xc3P\x00d\xfe~\x0b\x80\xde\xad\xcb\x11\x00\x18\x02\x00\x00\x00\x00\x01\xff\x00\x00\x00\x01\x10\x00\x01\xff\x00\x00\x00\x01\x11\x7f\x00\x00\x04\x7f\x00\x00\x05\x01\x00\x00\x00`\xb3\xe5a\x00?\x00\x00\x00)\xbb(\xac\xce\xf0\xac\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \xc0\x03\x18\x93LZ\x07\xa0\xcb\t\xba\x00\x03\r@\x00\x03\r@\x00\x00\x00\x00'
@@ -81,8 +85,8 @@ class TestSCION(unittest.TestCase):
         p = p/SCMP()
 
         ip = IP(bytes(p))
-        self.assertEqual(ip[UDP].sport, 50000)
-        self.assertEqual(ip[UDP].dport, 50000)
+        self.assertEqual(ip[UDP].sport, 30042)
+        self.assertEqual(ip[UDP].dport, 30042)
         scion = ip[SCION]
         self.assertEqual(scion.NextHdr, ProtocolNumbers["HopByHopExt"])
         hbh = scion[HopByHopExt]

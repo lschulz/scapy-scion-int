@@ -19,9 +19,9 @@ from scapy.fields import (BitEnumField, BitField, BitScalingField,
                           PacketListField, ScalingField, ShortField, XBitField,
                           XShortField, XStrField, XStrLenField)
 from scapy.layers.inet import TCP, UDP
-from scapy.packet import Packet, Raw, bind_layers
+from scapy.packet import (Packet, Raw, bind_bottom_up, bind_layers,
+                          bind_top_down)
 from scapy.utils import checksum
-
 
 # Assigned SCION protocol numbers
 # https://scion.docs.anapaya.net/en/latest/protocols/assigned-protocol-numbers.html
@@ -450,9 +450,23 @@ class EndToEndExt(Packet):
             pkt_cls=_detect_e2e_option_type)
     ]
 
+# Bind default port ranges to IP/UDP underlay
+# https://github.com/scionproto/scion/wiki/Default-port-ranges
+# Control service
+bind_bottom_up(UDP, SCION, dport=30252)
+bind_bottom_up(UDP, SCION, sport=30252)
+# Border routers
+for port in range(30042, 30052):
+    bind_bottom_up(UDP, SCION, dport=port)
+    bind_bottom_up(UDP, SCION, sport=port)
+# SIG
+bind_bottom_up(UDP, SCION, dport=30256)
+bind_bottom_up(UDP, SCION, sport=30256)
+bind_bottom_up(UDP, SCION, dport=30056)
+bind_bottom_up(UDP, SCION, sport=30056)
 
-# Bind to IP/UDP underlay
-bind_layers(UDP, SCION, {'sport': 50000, 'dport': 50000})
+# Default ports for constructing SCION packets
+bind_top_down(UDP, SCION, {'dport': 30042, 'sport': 30042})
 
 # Bind upper-layer protocols
 bind_layers(SCION, TCP, NextHdr=ProtocolNumbers['TCP'])
