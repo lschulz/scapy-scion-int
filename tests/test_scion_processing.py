@@ -5,7 +5,7 @@ from scapy.layers.inet import UDP
 from scapy.packet import bind_bottom_up
 from scapy.utils import rdpcap
 
-from layers.scion import SCION
+from layers.scion import SCION, SCIONPath, InfoField, HopField
 from utils import compare_layers
 
 
@@ -29,7 +29,7 @@ class TestScionProcessing(unittest.TestCase):
             bind_bottom_up(UDP, SCION, sport=port)
 
     def test_path_processing(self):
-        """Test ingress and egress processing of SCION paths including hop field validation."""
+        """Test ingress and egress processing of SCION paths including hop field validation"""
 
         pkts = rdpcap(str(Path(__file__).parent / "reference_pkts.pcap"))
         p = pkts[0][SCION].Path
@@ -84,3 +84,51 @@ class TestScionProcessing(unittest.TestCase):
         # Hop br3-ff00_0_7-1#i > Dispatcher       |
         p.ingress(self.keys["ff00:0:7"])
         self.assertEqual(list(compare_layers(p, pkts[12][SCION].Path)), [])
+
+    def test_path_construction(self):
+        """Test initialization of MAC and SegID fields"""
+        p = SCIONPath(
+            Seg0Len=3, Seg1Len=3, Seg2Len=3,
+            InfoFields=[
+                InfoField(),
+                InfoField(),
+                InfoField(Flags="C"),
+            ],
+            HopFields=[
+                HopField(ConsIngress=1, ConsEgress=0),
+                HopField(ConsIngress=1, ConsEgress=2),
+                HopField(ConsIngress=0, ConsEgress=2),
+                HopField(ConsIngress=1, ConsEgress=0),
+                HopField(ConsIngress=2, ConsEgress=1),
+                HopField(ConsIngress=0, ConsEgress=1),
+                HopField(ConsIngress=0, ConsEgress=2),
+                HopField(ConsIngress=1, ConsEgress=2),
+                HopField(ConsIngress=1, ConsEgress=0),
+            ]
+        )
+        path_keys = [
+            # Up segment
+            self.keys["ff00:0:3"], self.keys["ff00:0:2"], self.keys["ff00:0:1"],
+            # Core segment
+            self.keys["ff00:0:1"], self.keys["ff00:0:4"], self.keys["ff00:0:5"],
+            # Down segment
+            self.keys["ff00:0:5"], self.keys["ff00:0:6"], self.keys["ff00:0:7"],
+        ]
+        p.init_path(path_keys)
+
+        # Check MACs
+        # Up segment
+        p.egress(self.keys["ff00:0:3"])
+        p.ingress(self.keys["ff00:0:2"])
+        p.egress(self.keys["ff00:0:2"])
+        p.ingress(self.keys["ff00:0:1"])
+        # Core segment
+        p.egress(self.keys["ff00:0:1"])
+        p.ingress(self.keys["ff00:0:4"])
+        p.egress(self.keys["ff00:0:4"])
+        p.ingress(self.keys["ff00:0:5"])
+        # Down segment
+        p.egress(self.keys["ff00:0:5"])
+        p.ingress(self.keys["ff00:0:6"])
+        p.egress(self.keys["ff00:0:6"])
+        p.ingress(self.keys["ff00:0:7"])

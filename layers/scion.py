@@ -6,9 +6,10 @@ https://scion.docs.anapaya.net/en/latest/protocols/extension-header.html
 
 import array
 import base64
+import os
 import struct
 from datetime import datetime, timezone
-from typing import Optional, Tuple, Type
+from typing import Iterable, List, Optional, Tuple, Type
 
 from cryptography.hazmat.primitives import cmac
 from cryptography.hazmat.primitives.ciphers import algorithms
@@ -143,17 +144,54 @@ class SCIONPath(Packet):
         def __str__(self):
             return "Hop field verification failed"
 
-    def _verify_hop_field(self, beta: int, key: str):
-        ts = int(self.InfoFields[self.CurrINF].Timestamp.timestamp())
-        exp_time = self.HopFields[self.CurrHF].ExpTime
-        ingress = self.HopFields[self.CurrHF].ConsIngress
-        egress = self.HopFields[self.CurrHF].ConsEgress
+    @staticmethod
+    def _calc_mac(inf: InfoField, hf: HopField, beta: int, key: str) -> bytes:
+        ts = int(inf.Timestamp.timestamp())
+        exp_time = hf.ExpTime
+        ingress = hf.ConsIngress
+        egress = hf.ConsEgress
         cmac_input = struct.pack("!HHIBBHHH", 0, beta, ts, 0, exp_time, ingress, egress, 0)
         c = cmac.CMAC(algorithms.AES(base64.b64decode(key)))
         c.update(cmac_input)
-        expected = c.finalize()
+        return c.finalize()
+
+    @staticmethod
+    def _init_segment(inf: InfoField, hfs: Iterable[HopField], keys: Iterable[str], seed):
+        beta = [seed]
+        for hf, key in zip(hfs, keys):
+            mac = SCIONPath._calc_mac(inf, hf, int.from_bytes(beta[-1], byteorder='big'), key)
+            hf.MAC = int.from_bytes(mac[:6], byteorder='big')
+            beta.append(bytes(a ^ b for a, b in zip(beta[-1], mac[:2])))
+        return beta
+
+    def _verify_hop_field(self, beta: int, key: str):
+        expected = self._calc_mac(self.InfoFields[self.CurrINF], self.HopFields[self.CurrHF],
+            beta, key)
         if self.HopFields[self.CurrHF].MAC.to_bytes(6, byteorder='big') != expected[:6]:
             raise SCIONPath.VerificationError()
+
+    def init_path(self, keys: List, seeds: List[bytes] = []) -> None:
+        """"Initialize the MAC and SegID fields.
+        :param keys: AS keys for the MAC computation in order of the hop fields as they appear in
+                     the header.
+        :param seeds: Initial random values (2 bytes per segment) for hop field chaining.
+        """
+        seg_offsets = [
+            0,
+            self.Seg0Len,
+            self.Seg0Len + self.Seg1Len,
+            self.Seg0Len + self.Seg1Len + self.Seg2Len
+        ]
+        for i, inf in enumerate(self.InfoFields):
+            seg_hfs = self.HopFields[seg_offsets[i]:seg_offsets[i+1]]
+            seg_keys = keys[seg_offsets[i]:seg_offsets[i+1]]
+            seed = seeds[i] if i < len(seeds) else os.urandom(2)
+            if inf.Flags.C:
+                beta = self._init_segment(inf, seg_hfs, seg_keys, seed)
+                inf.SegID = int.from_bytes(beta[0], byteorder='big')
+            else:
+                beta = self._init_segment(inf, reversed(seg_hfs), reversed(seg_keys), seed)
+                inf.SegID = int.from_bytes(beta[-2], byteorder='big')
 
     def egress(self, key: str) -> None:
         """Perform egress processing on the path as a border router would.
