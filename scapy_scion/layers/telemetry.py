@@ -13,8 +13,7 @@ from scapy.fields import (BitEnumField, BitField, BitFieldLenField, ByteField,
                           XShortField, XStrFixedLenField)
 from scapy.packet import Packet
 
-import layers.scion as scion
-
+from . import scion
 
 # Instructions which are always available
 FixedInstructions = [

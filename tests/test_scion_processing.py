@@ -4,9 +4,8 @@ from pathlib import Path
 from scapy.layers.inet import UDP
 from scapy.packet import bind_bottom_up
 from scapy.utils import rdpcap
-
-from layers.scion import SCION, SCIONPath, InfoField, HopField
-from utils import compare_layers
+from scapy_scion.layers.scion import SCION, HopField, InfoField, SCIONPath
+from scapy_scion.utils import compare_layers
 
 
 class TestScionProcessing(unittest.TestCase):

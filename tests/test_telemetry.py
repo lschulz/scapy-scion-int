@@ -1,8 +1,8 @@
 import unittest
 
-from layers.scion import (SCION, HopByHopExt, PadNOption, ProtocolNumbers,
-                          SCIONPath)
-from layers.telemetry import Report, TelemetryOption
+from scapy_scion.layers.scion import (SCION, HopByHopExt, PadNOption,
+                                      ProtocolNumbers, SCIONPath)
+from scapy_scion.layers.telemetry import Report, TelemetryOption
 
 
 class TestSCIONTelemetry(unittest.TestCase):

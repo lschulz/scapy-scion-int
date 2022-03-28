@@ -1,13 +1,13 @@
 import unittest
 
-from layers.bfd import BFD
-from layers.scion import (SCION, AuthenticatorOption, EndToEndExt, HopByHopExt,
-                          HopField, InfoField, PadNOption, ProtocolNumbers,
-                          SCIONPath)
-from layers.scmp import SCMP
 from scapy.layers.inet import IP, UDP
 from scapy.layers.l2 import Ether
 from scapy.packet import bind_bottom_up
+from scapy_scion.layers.bfd import BFD
+from scapy_scion.layers.scion import (SCION, AuthenticatorOption, EndToEndExt,
+                                      HopByHopExt, HopField, InfoField,
+                                      PadNOption, ProtocolNumbers, SCIONPath)
+from scapy_scion.layers.scmp import SCMP
 
 
 class TestSCION(unittest.TestCase):

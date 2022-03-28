@@ -1,10 +1,10 @@
 #! /usr/bin/env python3
 
 from scapy.all import *
-from layers.scion import *
-from layers.telemetry import *
-from layers.scmp import *
-from layers.bfd import *
+from scapy_scion.layers.scion import *
+from scapy_scion.layers.telemetry import *
+from scapy_scion.layers.scmp import *
+from scapy_scion.layers.bfd import *
 
 
 # Additional layers bindings

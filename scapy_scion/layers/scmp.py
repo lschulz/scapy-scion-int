@@ -7,8 +7,7 @@ from scapy.fields import (ByteEnumField, ByteField, MultipleTypeField,
                           PacketField, ShortField, XShortField, XStrField)
 from scapy.packet import Packet, bind_layers
 
-from layers.scion import SCION, EndToEndExt, HopByHopExt, ProtocolNumbers
-
+from .scion import SCION, EndToEndExt, HopByHopExt, ProtocolNumbers
 
 SCMPTypes = {
     # Error Messages

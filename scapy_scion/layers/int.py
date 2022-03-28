@@ -13,7 +13,6 @@ from scapy.fields import (BitEnumField, BitField, BitScalingField, ByteField,
 from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers
 
-
 # Instructions corresponding to standard metadata
 # List of (bit, length (in bytes), name) tuples
 StdInstructions = [

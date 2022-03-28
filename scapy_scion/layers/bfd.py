@@ -7,7 +7,7 @@ from scapy.fields import (BitEnumField, BitField, ByteField, FieldLenField,
                           FlagsField, IntField, XStrLenField)
 from scapy.packet import Packet, bind_layers
 
-from layers.scion import SCION, EndToEndExt, HopByHopExt, ProtocolNumbers
+from .scion import SCION, EndToEndExt, HopByHopExt, ProtocolNumbers
 
 
 class BFD(Packet):

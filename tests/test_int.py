@@ -1,7 +1,7 @@
 import unittest
 
-from layers.int import INT
 from scapy.layers.inet import IP, UDP
+from scapy_scion.layers.int import INT
 
 
 class TestINT(unittest.TestCase):

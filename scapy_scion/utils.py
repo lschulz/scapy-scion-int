@@ -5,8 +5,8 @@ from typing import List, Optional, Tuple, Union
 import scapy
 from scapy.sendrecv import sniff
 
-from layers.scion import SCION
-from layers.scmp import SCMP
+from .layers.scion import SCION
+from .layers.scmp import SCMP
 
 
 class PingError(Exception):

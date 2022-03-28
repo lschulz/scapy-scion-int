@@ -18,9 +18,8 @@ from scapy.packet import Packet, bind_layers
 from scapy.sendrecv import AsyncSniffer
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
-from layers.scion import SCION
-from utils import capture_path, compare_layers
-
+from scapy_scion.layers.scion import SCION
+from scapy_scion.utils import capture_path, compare_layers
 
 TEST_PORT = 6500
 

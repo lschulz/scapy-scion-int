@@ -6,7 +6,7 @@ from datetime import datetime
 
 from scapy.fields import ByteField, Field, IntField
 
-from scion_addr import ASN
+from .scion_addr import ASN
 
 
 class AsnField(Field):

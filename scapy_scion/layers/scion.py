@@ -13,7 +13,6 @@ from typing import Iterable, List, Optional, Tuple, Type
 
 from cryptography.hazmat.primitives import cmac
 from cryptography.hazmat.primitives.ciphers import algorithms
-from fields import AsnField, ExpiryTime, UnixTimestamp
 from scapy.fields import (BitEnumField, BitField, BitScalingField,
                           ByteEnumField, ByteField, FieldLenField, FlagsField,
                           IP6Field, IPField, MultipleTypeField, PacketField,
@@ -23,6 +22,7 @@ from scapy.layers.inet import TCP, UDP
 from scapy.packet import (Packet, Raw, bind_bottom_up, bind_layers,
                           bind_top_down)
 from scapy.utils import checksum
+from scapy_scion.fields import AsnField, ExpiryTime, UnixTimestamp
 
 # Assigned SCION protocol numbers
 # https://scion.docs.anapaya.net/en/latest/protocols/assigned-protocol-numbers.html
