@@ -18,9 +18,9 @@ Some SCION tools built with Scapy are available in [tools](/tools).
 
 ### Dependencies
 - Python 3
-- [Scapy](https://scapy.net/)
+- [Scapy](https://scapy.net/) (2.4.5)
 - Additional Python packages:
-    - cryptography
+    - cryptography (37.0.2)
 - IPython is recommended for the interactive Scapy shell
 
 
