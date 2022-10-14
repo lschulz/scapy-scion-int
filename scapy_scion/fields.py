@@ -3,10 +3,24 @@ Special fields for SCION headers
 """
 
 from datetime import datetime
+from typing import Optional
 
 from scapy.fields import ByteField, Field, IntField
 
 from .scion_addr import ASN
+
+
+class IntegerField(Field[int, bytes]):
+    """Integer field with arbitrary fixed length in bytes."""
+
+    def __init__(self, name: str, default: Optional[int], sz: int):
+        Field.__init__(self, name, default, fmt=f"!{sz}s")
+
+    def i2m(self, pkt, x) -> bytes:
+        return x.to_bytes(length=self.sz, byteorder='big')
+
+    def m2i(self, pkt, x) -> int:
+        return int.from_bytes(x[:self.sz], byteorder='big')
 
 
 class AsnField(Field):
