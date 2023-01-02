@@ -160,15 +160,15 @@ class INT(Packet):
         PacketField("Shim", default=INToverUDPShim(), pkt_cls=INToverUDPShim),
         BitField("Version", default=2, size=4),
         FlagsField("Flags", default=0, size=3, names={
-            (2 - 0): "Discard",
-            (2 - 1): "Max Hop Count exceeded",
-            (2 - 2): "MTU exceeded"
+            2**(2 - 0): "Discard",
+            2**(2 - 1): "Max Hop Count exceeded",
+            2**(2 - 2): "MTU exceeded"
         }),
         BitField("Reserved", default=0, size=12),
         BitScalingField("HopML", default=-1, size=5, scaling=4, unit="bytes"),
         ByteField("RemainingHopCount", default=255),
         FlagsField("InstructionBitmap", default=0, size=16,
-            names={bit: name for bit, _, name in StdInstructions}),
+            names={2**bit: name for bit, _, name in StdInstructions}),
         ShortField("DomainSpecificID", default=0),
         ShortField("DSInstructions", default=0),
         ShortField("DSFlags", default=0),

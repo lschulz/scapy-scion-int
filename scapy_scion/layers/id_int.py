@@ -22,10 +22,10 @@ from scapy_scion.layers import scion
 
 
 FixedInst = {
-    (3 - 0): "NodeID",
-    (3 - 1): "NodeCnt",
-    (3 - 2): "InIf",
-    (3 - 3): "EgIf"
+    2**(3 - 0): "NodeID",
+    2**(3 - 1): "NodeCnt",
+    2**(3 - 2): "InIf",
+    2**(3 - 3): "EgIf"
 }
 
 VarInst = {
@@ -163,11 +163,11 @@ class Metadata(Packet):
 
     fields_desc = [
         FlagsField("Flags", default=0, size=5, names={
-            (4 - 0): "Source",
-            (4 - 1): "Ingress",
-            (4 - 2): "Egress",
-            (4 - 3): "Aggregate",
-            (4 - 4): "Encrypted"
+            2**(4 - 0): "Source",
+            2**(4 - 1): "Ingress",
+            2**(4 - 2): "Egress",
+            2**(4 - 3): "Aggregate",
+            2**(4 - 4): "Encrypted"
         }),
         BitField("Reserved1", default=0, size=3),
         BitField("Hop", default=0, size=6),
@@ -247,11 +247,11 @@ class IDINT(Packet):
     fields_desc = [
         BitField("Version", default=0, size=3),
         FlagsField("Flags", default=0, size=5, names={
-            (4 - 0): "Infrastructure",
-            (4 - 1): "Discard",
-            (4 - 2): "Encrypted",
-            (4 - 3): "Hop count exceeded",
-            (4 - 4): "Stack full"
+            2**(4 - 0): "Infrastructure",
+            2**(4 - 1): "Discard",
+            2**(4 - 2): "Encrypted",
+            2**(4 - 3): "Hop count exceeded",
+            2**(4 - 4): "Stack full"
         }),
         BitEnumField("AggrMode", default=0, size=2, enum={
             0: "Off",

@@ -53,7 +53,7 @@ class EchoRequest(Packet):
 
     fields_desc = [
         ShortField("Identifier", default=0),
-        ShortField("Sequence Number", default=0),
+        ShortField("SequenceNumber", default=0),
         XStrField("Data", default=b"")
     ]
 
@@ -65,7 +65,7 @@ class EchoReply(Packet):
 
     fields_desc = [
         ShortField("Identifier", default=0),
-        ShortField("Sequence Number", default=0),
+        ShortField("SequenceNumber", default=0),
         XStrField("Data", default=b"")
     ]
 

@@ -18,11 +18,16 @@ Some SCION tools built with Scapy are available in [tools](/tools).
 
 ### Dependencies
 - Python 3
-- [Scapy](https://scapy.net/) (2.4.5)
+- [Scapy](https://scapy.net/) (2.5.0)
 - Additional Python packages:
-    - cryptography (37.0.2)
-- IPython is recommended for the interactive Scapy shell
+    - cryptography (39.0.0)
 
+Installation on Ubuntu 22.04.1:
+```
+sudo apt-get install python3 python3-pip
+sudo pip install --pre scapy[basic]
+pip install cryptography
+```
 
 Getting Started: Craft and Send a SCION Packet
 ----------------------------------------------

@@ -86,7 +86,8 @@ class InfoField(Packet):
 
     fields_desc = [
         FlagsField("Flags", default=0, size=8, names={
-            0: "C", 1: "P"
+            0x01: "C",
+            0x02: "P"
         }),
         BitField("RSV", default=0, size=8),
         XShortField("SegID", default=0),
@@ -104,7 +105,8 @@ class HopField(Packet):
 
     fields_desc = [
         FlagsField("Flags", default=0, size=8, names={
-            0: "E", 1: "I"
+            0x01: "E",
+            0x02: "I"
         }),
         ExpiryTime("ExpTime", default=0),
         ShortField("ConsIngress", default=0),
@@ -246,8 +248,8 @@ class OneHopPath(Packet):
 
     fields_desc = [
         PacketField("InfoField", default=None, pkt_cls=InfoField),
-        PacketField("HopField 0", default=None, pkt_cls=HopField),
-        PacketField("HopField 1", default=None, pkt_cls=HopField)
+        PacketField("HopField0", default=None, pkt_cls=HopField),
+        PacketField("HopField1", default=None, pkt_cls=HopField)
     ]
 
     def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:

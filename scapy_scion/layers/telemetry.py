@@ -253,10 +253,10 @@ class Report(Packet):
 
     fields_desc = [
         FlagsField("Flags", default=0, size=4, names={
-            (3 - 0): "Ingress",
-            (3 - 1): "Egress",
-            (3 - 2): "Aggregated",
-            (3 - 3): "Reserved",
+            2**(3 - 0): "Ingress",
+            2**(3 - 1): "Egress",
+            2**(3 - 2): "Aggregated",
+            2**(3 - 3): "Reserved",
         }),
         BitField("Hop", default=0, size=6),
         BitFieldLenField("Length", default=None, size=6, length_of="Metadata",
@@ -289,11 +289,11 @@ class TelemetryOption(Packet):
             adjust=lambda pkt, x: x + 6),
         BitField("Version", default=0, size=3),
         FlagsField("Flags", default=0, size=5, names={
-            (4 - 0): "Discard",
-            (4 - 1): "Max hop count exceeded",
-            (4 - 2): "MTU exceeded",
-            (4 - 3): "Reserved_1",
-            (4 - 4): "Reserved_2"
+            2**(4 - 0): "Discard",
+            2**(4 - 1): "Max hop count exceeded",
+            2**(4 - 2): "MTU exceeded",
+            2**(4 - 3): "Reserved_1",
+            2**(4 - 4): "Reserved_2"
         }),
         BitEnumField("AggregationMode", default=0, size=2, enum={
             0: "Off",
@@ -305,7 +305,7 @@ class TelemetryOption(Packet):
         BitField("VarInstPlane", default=0, size=4),
         BitField("Reserved", default=0, size=4),
         FlagsField("FixedInst", default=0, size=8,
-            names={bit: name for bit, _, name, _ in FixedInstructions}),
+            names={2**bit: name for bit, _, name, _ in FixedInstructions}),
         MultiFlagsField("VarInst", default=0, size=8, depends_on=lambda pkt: pkt.VarInstPlane,
             names={
                 id: {bit: MultiFlagsEntry(name, long_name) for bit, _, name, long_name in plane}

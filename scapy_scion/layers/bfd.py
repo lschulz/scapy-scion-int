@@ -35,15 +35,15 @@ class BFD(Packet):
             3: "Up"
         }),
         FlagsField("Flags", default=0, size=6, names="MDACFP"),
-        ByteField("Detect Multiplier", default=1),
+        ByteField("DetectMultiplier", default=1),
         FieldLenField("Length", default=None, fmt="B",
             length_of="Authentication",
             adjust=lambda pkt, x: x - 24),
-        IntField("My Discriminator", default=None),
-        IntField("Your Deiscriminator", default=None),
-        IntField("Desired Min TX Interval", default=None),
-        IntField("Required Min TX Interval", default=None),
-        IntField("Required Min Echo RX Interval", default=None),
+        IntField("MyDiscriminator", default=None),
+        IntField("YourDiscriminator", default=None),
+        IntField("DesiredMinTxInterval", default=None),
+        IntField("RequiredMinTxInterval", default=None),
+        IntField("RequiredMinEchoRxInterval", default=None),
         XStrLenField("Authentication", default="", length_from=lambda pkt: pkt.Length - 24)
     ]
 
