@@ -18,6 +18,14 @@ class TestScionProcessing(unittest.TestCase):
         "ff00:0:6": "diKD628EpzWsvOxxJiDBUg==",
         "ff00:0:7": "tAmT1zsbqdHxBmqNjSRxzA==",
     }
+    path_keys = [
+        # Up segment
+        keys["ff00:0:3"], keys["ff00:0:2"], keys["ff00:0:1"],
+        # Core segment
+        keys["ff00:0:1"], keys["ff00:0:4"], keys["ff00:0:5"],
+        # Down segment
+        keys["ff00:0:5"], keys["ff00:0:6"], keys["ff00:0:7"],
+    ]
 
     @classmethod
     def setUpClass(cls):
@@ -31,7 +39,9 @@ class TestScionProcessing(unittest.TestCase):
         """Test ingress and egress processing of SCION paths including hop field validation"""
 
         pkts = rdpcap(str(Path(__file__).parent / "reference_pkts.pcap"))
-        p = pkts[0][SCION].Path
+        p = pkts[0][SCION].Path.copy()
+        p.init_path(self.path_keys, seeds=[b"\x9d\x53", b"\x69\x91", b"\x40\x73"])
+        self.assertEqual(list(compare_layers(p, pkts[0][SCION].Path)), [])
 
         # Up-segment (against construction direction)
         # Hop br1-ff00_0_3-1#1 > br1-ff00_0_2-2#2 | CurrHF  = 1
@@ -105,15 +115,8 @@ class TestScionProcessing(unittest.TestCase):
                 HopField(ConsIngress=1, ConsEgress=0),
             ]
         )
-        path_keys = [
-            # Up segment
-            self.keys["ff00:0:3"], self.keys["ff00:0:2"], self.keys["ff00:0:1"],
-            # Core segment
-            self.keys["ff00:0:1"], self.keys["ff00:0:4"], self.keys["ff00:0:5"],
-            # Down segment
-            self.keys["ff00:0:5"], self.keys["ff00:0:6"], self.keys["ff00:0:7"],
-        ]
-        p.init_path(path_keys)
+
+        p.init_path(self.path_keys)
 
         # Check MACs
         # Up segment
