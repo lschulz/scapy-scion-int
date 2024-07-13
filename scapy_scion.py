@@ -4,7 +4,7 @@ from scapy.all import *
 from scapy_scion.layers.scion import *
 from scapy_scion.layers.scmp import *
 from scapy_scion.layers.bfd import *
-from scapy_scion.layers.id_int import *
+from scapy_scion.layers.idint import *
 
 
 # Additional layers bindings

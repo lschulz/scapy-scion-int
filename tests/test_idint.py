@@ -1,7 +1,7 @@
 import unittest
 
 from scapy.layers.inet import IP, UDP
-from scapy_scion.layers.id_int import IDINT, Metadata
+from scapy_scion.layers.idint import IDINT, StackEntry
 from scapy_scion.layers.scion import SCION, ProtocolNumbers, SCIONPath
 
 
@@ -26,12 +26,12 @@ class TestIDINT(unittest.TestCase):
             SourcePort=10,
             VerifISD=1000,
             VerifAS="ff00:0:100",
-            Metadata = [
-                Metadata(Flags="Ingress", Hop=2, Mask="NodeID",
+            TelemetryStack = [
+                StackEntry(Flags="Ingress", Hop=2, Mask="NodeID",
                     NodeID=3, MD1=(5).to_bytes(4, 'big'), MD2=(6).to_bytes(4, 'big')),
-                Metadata(Flags="Ingress+Egress", Hop=1, Mask="NodeID",
+                StackEntry(Flags="Ingress+Egress", Hop=1, Mask="NodeID",
                     NodeID=2, MD1=(3).to_bytes(4, 'big'), MD2=(4).to_bytes(2, 'big')),
-                Metadata(Flags="Source+Egress", Hop=0, Mask="NodeID",
+                StackEntry(Flags="Source+Egress", Hop=0, Mask="NodeID",
                     NodeID=1, MD1=(1).to_bytes(4, 'big'), MD2=(2).to_bytes(4, 'big'))
             ]
         )
@@ -50,7 +50,7 @@ class TestIDINT(unittest.TestCase):
         self.assertEqual(idint.VerifISD, 1000)
         self.assertEqual(idint.VerifAS, "ff00:0:100")
         self.assertEqual(idint.VerifAddr, "127.0.0.1")
-        stack = idint.Metadata
+        stack = idint.TelemetryStack
         self.assertEqual(len(stack), 3)
         self.assertEqual(stack[0].Hop, 2)
         self.assertEqual(stack[0].ML1, 4)

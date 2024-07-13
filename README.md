@@ -12,7 +12,7 @@ Supported headers:
 - SCMP (only Echo Request and Reply)
 - BFD over SCION
 - INT-MD over UDP
-- In-band Telemetry over SCION (prototype)
+- Inter-domain INT for SCION
 
 Some SCION tools built with Scapy are available in [tools](/tools).
 
@@ -27,6 +27,11 @@ Installation on Ubuntu 22.04.1:
 sudo apt-get install python3 python3-pip
 sudo pip install --pre scapy[basic]
 pip install cryptography
+```
+
+### Run Unit Tests
+```bash
+python -m unittest
 ```
 
 Getting Started: Craft and Send a SCION Packet

@@ -9,26 +9,24 @@ from typing import Callable, List, Optional, Tuple
 from cryptography.hazmat.primitives import cmac
 from cryptography.hazmat.primitives.ciphers import algorithms
 from scapy.fields import (BitEnumField, BitField, BitScalingField,
-                          ByteEnumField, ConditionalField, Field,
+                          ByteEnumField, ByteField, ConditionalField, Field,
                           FieldLenField, FlagsField, IntField, IP6Field,
                           IPField, MultipleTypeField, PacketListField,
                           ShortField, StrLenField, XStrFixedLenField,
                           XStrLenField)
 from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers
-
 from scapy_scion.fields import AsnField, IntegerField
 from scapy_scion.layers import scion
 
-
-FixedInst = {
+InstFlags = {
     2**(3 - 0): "NodeID",
     2**(3 - 1): "NodeCnt",
     2**(3 - 2): "InIf",
     2**(3 - 3): "EgIf"
 }
 
-VarInst = {
+Instruction = {
     0x00: "ZERO_2",
     0x01: "ISD",
     0x02: "BR_LINK_TYPE",
@@ -46,17 +44,19 @@ VarInst = {
     0x44: "NODE_IPV4_ADDR",
     0x45: "INGRESS_IF_SPEED",
     0x46: "EGRESS_IF_SPEED",
-    0x47: "UPTIME",
-    0x48: "FWD_ENERGY",
-    0x49: "CO2_EMISSION",
-    0x4A: "INGRESS_LINK_RX",
-    0x4B: "EGRESS_LINK_TX",
-    0x4C: "QUEUE_ID",
-    0x4D: "INST_QUEUE_LEN",
-    0x4E: "AVG_QUEUE_LEN",
-    0x4F: "BUFFER_ID",
-    0x50: "INST_BUFFER_OCC",
-    0x51: "AVG_BUFFER_OCC",
+    0x47: "GPS_LAT",
+    0x48: "GPS_LONG",
+    0x49: "UPTIME",
+    0x4A: "FWD_ENERGY",
+    0x4B: "CO2_EMISSION",
+    0x4C: "INGRESS_LINK_RX",
+    0x4D: "EGRESS_LINK_TX",
+    0x4E: "QUEUE_ID",
+    0x4F: "INST_QUEUE_LEN",
+    0x50: "AVG_QUEUE_LEN",
+    0x51: "BUFFER_ID",
+    0x52: "INST_BUFFER_OCC",
+    0x53: "AVG_BUFFER_OCC",
     0x80: "ZERO_6",
     0x81: "ASN",
     0x82: "INGRESS_TSTAMP",
@@ -76,9 +76,7 @@ VarInst = {
     0xC0: "ZERO_8",
     0xC1: "NODE_IPV6_ADDR_H",
     0xC2: "NODE_IPV6_ADDR_L",
-    0xC3: "GPS_LAT",
-    0xC4: "GPS_LONG",
-    0xFF: "NOP"
+    0xFF: "NOP",
 }
 
 AggrFunctions = {
@@ -89,10 +87,8 @@ AggrFunctions = {
     4: "Sum"
 }
 
-
 class MetadataLenField(BitField):
-    """Length field for variable size metadata.
-
+    """Length field for metadata slots.
     The internal representation is an integer number of bytes, the machine representation is encoded
     as follows:
     Size     Encoding
@@ -146,6 +142,8 @@ class MetadataPadField(Field[bytes, bytes]):
             padding = self.padlen(pkt)
         elif x is None:
             padding = 0
+        else:
+            padding = len(x)
         return self._padwith[:padding]
 
     def getfield(self, pkt: Packet, s: bytes) -> Tuple[bytes, bytes]:
@@ -156,10 +154,10 @@ class MetadataPadField(Field[bytes, bytes]):
         return s + self.i2m(pkt, val)
 
 
-class Metadata(Packet):
+class StackEntry(Packet):
     """Entry on the ID-INT metadata stack"""
 
-    name = "Metadata"
+    name = "StackEntry"
 
     fields_desc = [
         FlagsField("Flags", default=0, size=5, names={
@@ -172,7 +170,7 @@ class Metadata(Packet):
         BitField("Reserved1", default=0, size=3),
         BitField("Hop", default=0, size=6),
         BitField("Reserved2", default=0, size=2),
-        FlagsField("Mask", default=0, size=4, names=FixedInst),
+        FlagsField("Mask", default=0, size=4, names=InstFlags),
         MetadataLenField("ML1", length_of="MD1"),
         MetadataLenField("ML2", length_of="MD2"),
         MetadataLenField("ML3", length_of="MD3"),
@@ -187,7 +185,7 @@ class Metadata(Packet):
         StrLenField("MD2", default=b"", length_from=lambda pkt: pkt.ML2),
         StrLenField("MD3", default=b"", length_from=lambda pkt: pkt.ML3),
         StrLenField("MD4", default=b"", length_from=lambda pkt: pkt.ML4),
-        MetadataPadField("Padding", 4, length_from=lambda pkt: Metadata._get_md_len(pkt)),
+        MetadataPadField("Padding", 4, length_from=lambda pkt: StackEntry._get_md_len(pkt)),
         XStrFixedLenField("MAC", default=b"\x00\x00\x00\x00", length=4)
     ]
 
@@ -213,8 +211,7 @@ class Metadata(Packet):
         hdr.Length = 0
         hdr.NextHdr = 0
         hdr.DelayHops = 0
-        hdr.RemHops = 0
-        hdr.Metadata = []
+        hdr.TelemetryStack = []
         hdr.remove_payload()
         c.update(bytes(hdr))
         c.update(bytes(self)[:-4])
@@ -250,8 +247,7 @@ class IDINT(Packet):
             2**(4 - 0): "Infrastructure",
             2**(4 - 1): "Discard",
             2**(4 - 2): "Encrypted",
-            2**(4 - 3): "Hop count exceeded",
-            2**(4 - 4): "Stack full"
+            2**(4 - 3): "SizeExceeded",
         }),
         BitEnumField("AggrMode", default=0, size=2, enum={
             0: "Off",
@@ -266,26 +262,25 @@ class IDINT(Packet):
         }),
         BitEnumField("VT", default="IP", size=2, enum=scion.SCION.address_types),
         BitScalingField("VL", default=4, size=2, scaling=4, offset=4, unit="bytes"),
-        FieldLenField("Length", default=None, fmt="B", length_of="Metadata",
+        FieldLenField("Length", default=None, fmt="B", length_of="TelemetryStack",
             adjust=lambda pkt, x: x // 4),
         ByteEnumField("NextHdr", default=None, enum=scion.ProtocolNames),
         BitField("DelayHops", default=0, size=6),
         BitField("Reserved1", default=0, size=2),
-        BitField("RemHops", default=63, size=6),
-        BitField("Reserved2", default=0, size=2),
-        FlagsField("InstFlags", default=0, size=4, names=FixedInst),
+        ByteField("MaxStackLen", default=255),
+        FlagsField("InstFlags", default=0, size=4, names=InstFlags),
         BitEnumField("AF1", default=0, size=3, enum=AggrFunctions),
         BitEnumField("AF2", default=0, size=3, enum=AggrFunctions),
         BitEnumField("AF3", default=0, size=3, enum=AggrFunctions),
         BitEnumField("AF4", default=0, size=3, enum=AggrFunctions),
-        ByteEnumField("Inst1", default=0xff, enum=VarInst),
-        ByteEnumField("Inst2", default=0xff, enum=VarInst),
-        ByteEnumField("Inst3", default=0xff, enum=VarInst),
-        ByteEnumField("Inst4", default=0xff, enum=VarInst),
+        ByteEnumField("Inst1", default=0xff, enum=Instruction),
+        ByteEnumField("Inst2", default=0xff, enum=Instruction),
+        ByteEnumField("Inst3", default=0xff, enum=Instruction),
+        ByteEnumField("Inst4", default=0xff, enum=Instruction),
         IntegerField("SourceTS", default=time.time_ns() % (2**48), sz=6),
-        ConditionalField(ShortField("SourcePort", default=0), lambda pkt: pkt.Verifier == 0),
+        ShortField("SourcePort", default=0),
         ConditionalField(ShortField("VerifISD", default=1), lambda pkt: pkt.Verifier == 0),
-        AsnField("VerifAS", default="ff00:0:1"),
+        ConditionalField(AsnField("VerifAS", default="ff00:0:1"), lambda pkt: pkt.Verifier == 0),
         ConditionalField(MultipleTypeField([
             (IPField("VerifAddr", default="127.0.0.1"),
              lambda pkt: pkt.VT == 0 and pkt.VL == 4),
@@ -293,7 +288,7 @@ class IDINT(Packet):
              lambda pkt: pkt.VT == 0 and pkt.VL == 16)],
             XStrLenField("VerifAddr", default=None, length_from=lambda pkt: pkt.VL)
         ), lambda pkt: pkt.Verifier == 0),
-        PacketListField("Metadata", default=[], pkt_cls=Metadata,
+        PacketListField("TelemetryStack", default=[], pkt_cls=StackEntry,
             length_from=lambda pkt: 4*pkt.Length)
     ]
 
@@ -304,18 +299,18 @@ class IDINT(Packet):
         :param update: Overwrite the current MACs with the correct ones. No MAC errors are reported.
         :raises: IDINT.VerificationError: Metadata verification failed.
         """
-        if len(self.Metadata) == 0:
+        if len(self.TelemetryStack) == 0:
             return
-        if len(keys) < len(self.Metadata):
+        if len(keys) < len(self.TelemetryStack):
             raise Exception("Not enough keys")
         # Source
-        mac = self.Metadata[-1].source_mac(self, keys[0])
+        mac = self.TelemetryStack[-1].source_mac(self, keys[0])
         if update:
-            self.Metadata[-1].MAC = mac
-        elif self.Metadata[-1].MAC != mac:
+            self.TelemetryStack[-1].MAC = mac
+        elif self.TelemetryStack[-1].MAC != mac:
             raise IDINT.VerificationError()
         # Transit hops
-        for md, key in zip(reversed(self.Metadata[:-1]), keys[1:]):
+        for md, key in zip(reversed(self.TelemetryStack[:-1]), keys[1:]):
             mac = md.mac(mac, key)
             if update:
                 md.MAC = mac
@@ -327,5 +322,5 @@ class IDINT(Packet):
 bind_layers(scion.SCION, IDINT, NextHdr=scion.ProtocolNumbers["Experiment1"])
 
 # Bind upper-layer protocols
-# At the moment IDINT cannot be combined with SCION Hop-by-Hop and End-to-End extensions
+# Ignore SCION Hop-by-Hop and End-to-End extensions for now
 bind_layers(IDINT, UDP, NextHdr=scion.ProtocolNumbers['UDP'])
