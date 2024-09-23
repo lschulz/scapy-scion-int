@@ -1,7 +1,8 @@
 import unittest
 
 from scapy.layers.inet import IP, UDP
-from scapy_scion.layers.idint import IDINT, StackEntry
+
+from scapy_scion.layers.idint import CBCMAC, IDINT, StackEntry
 from scapy_scion.layers.scion import SCION, ProtocolNumbers, SCIONPath
 
 
@@ -76,3 +77,21 @@ class TestIDINT(unittest.TestCase):
         self.assertEqual(int.from_bytes(stack[2].MD1, 'big'), 1)
         self.assertEqual(int.from_bytes(stack[2].MD2, 'big'), 2)
         self.assertEqual(len(stack[2].Padding), 0)
+
+
+class TestCBCMAC(unittest.TestCase):
+
+    key = b'\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10'
+    data = bytes((2*i-1)%256 for i in range(32))
+
+    def test_mac_16b(self):
+        mac = CBCMAC(self.data[:16], self.key)
+        self.assertEqual(mac, b"\xc3z\xb5j\'?\x92B\xb4\xb67&\xdf\x05\x9f\xbe")
+
+    def test_mac_24b(self):
+        mac = CBCMAC(self.data[:24], self.key)
+        self.assertEqual(mac, b"p$\xe6\xaa\xd4\x16\xfc|\xf6\xc4\x8b\x04t\r\xc9o")
+
+    def test_mac_32b(self):
+        mac = CBCMAC(self.data[:32], self.key)
+        self.assertEqual(mac, b"?|E|J\xdc\xbcNw\x8cD\x97<\xe8EL")

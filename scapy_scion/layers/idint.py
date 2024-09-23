@@ -3,11 +3,12 @@ Inter-Domain In-band Network Telemetry for SCION
 https://github.com/netsys-lab/id-int-spec
 """
 
+import math
 import time
 from typing import Callable, List, Optional, Tuple
 
 from cryptography.hazmat.primitives import cmac
-from cryptography.hazmat.primitives.ciphers import algorithms
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from scapy.fields import (BitEnumField, BitField, BitScalingField,
                           ByteEnumField, ByteField, ConditionalField, Field,
                           FieldLenField, FlagsField, IntField, IP6Field,
@@ -206,16 +207,14 @@ class StackEntry(Packet):
         :param key: AES-128 key for AES-MAC computation.
         :returns: 4-byte MAC
         """
-        c = cmac.CMAC(algorithms.AES(key))
         hdr = hdr.copy()
         hdr.Length = 0
         hdr.NextHdr = 0
         hdr.DelayHops = 0
         hdr.TelemetryStack = []
         hdr.remove_payload()
-        c.update(bytes(hdr))
-        c.update(bytes(self)[:-4])
-        return c.finalize()[:4]
+        mac = CBCMAC(bytes(hdr) + bytes(self)[:-4], key)
+        return mac[:4]
 
     def mac(self, prev_mac: bytes, key: bytes) -> bytes:
         """Compute the metadata MAC.
@@ -223,13 +222,28 @@ class StackEntry(Packet):
         :param key: AES-128 key for AES-MAC computation.
         :returns: 4-byte MAC
         """
-        c = cmac.CMAC(algorithms.AES(key))
-        c.update(bytes(self)[:-4])
-        c.update(prev_mac)
-        return c.finalize()[:4]
+        mac = CBCMAC(bytes(self)[:-4] + prev_mac, key)
+        return mac[:4]
 
     def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
         return b"", s
+
+
+def CBCMAC(input: bytes, key: bytes) -> bytes:
+    algo = algorithms.AES(key)
+    ecb = Cipher(algo, modes.ECB())
+    enc = ecb.encryptor()
+
+    bs = algo.block_size // 8
+    blocks = int(math.ceil(len(input) / bs))
+
+    mac = bytearray(16)
+    for i in range(blocks):
+        for i, (a, b) in enumerate(zip(mac, input[i*bs:])):
+            mac[i] = a ^ b
+        mac = bytearray(enc.update(mac))
+
+    return bytes(mac)
 
 
 class IDINT(Packet):
