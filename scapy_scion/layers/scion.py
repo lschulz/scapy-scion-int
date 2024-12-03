@@ -504,6 +504,9 @@ bind_bottom_up(UDP, SCION, dport=30256)
 bind_bottom_up(UDP, SCION, sport=30256)
 bind_bottom_up(UDP, SCION, dport=30056)
 bind_bottom_up(UDP, SCION, sport=30056)
+# Dispatcher
+bind_bottom_up(UDP, SCION, dport=30041)
+bind_bottom_up(UDP, SCION, sport=30041)
 
 # Default ports for constructing SCION packets
 bind_top_down(UDP, SCION, {'dport': 30042, 'sport': 30042})
