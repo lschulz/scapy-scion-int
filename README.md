@@ -17,21 +17,21 @@ Supported headers:
 Some SCION tools built with Scapy are available in [tools](/tools).
 
 ### Dependencies
-- Python 3
+- Python >= 3.10
 - [Scapy](https://scapy.net/) (2.5.0)
 - Additional Python packages:
     - cryptography (39.0.0)
 
-Installation on Ubuntu 22.04.1:
-```
-sudo apt-get install python3 python3-pip
-sudo pip install --pre scapy[basic]
-pip install cryptography
+### Install as a local package
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -e .[extras]
 ```
 
 ### Run Unit Tests
 ```bash
-python -m unittest
+python3 -m unittest
 ```
 
 Getting Started: Craft and Send a SCION Packet

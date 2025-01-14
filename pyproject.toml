@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["scapy_scion*"]
+namespaces = false
+
+[project]
+name = "scapy-scion"
+version = "0.1.0"
+authors = [
+    { name="Lars-Christian Schulz", email="lschulz@ovgu.de" },
+]
+description = "SCION and in-band network telemetry layers for Scapy"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "scapy==2.5.0",
+    "cryptography>=39.0.0"
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Telecommunications Industry",
+    "License :: OSI Approved :: GNU General Public License v2 or later (GPLv2+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: System :: Networking",
+    "Topic :: System :: Networking :: Monitoring",
+]
+license = { text="GPL-2.0-or-later" }
+
+[project.optional-dependencies]
+extras = [ "ipython" ]
+
+[project.urls]
+Homepage = "https://github.com/lschulz/scapy-scion-int"
+Issues = "https://github.com/lschulz/scapy-scion-int/issues"
