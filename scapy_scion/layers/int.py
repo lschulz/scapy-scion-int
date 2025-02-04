@@ -10,8 +10,9 @@ from scapy.error import warning
 from scapy.fields import (BitEnumField, BitField, BitScalingField, ByteField,
                           Field, FieldListField, FlagsField, PacketField,
                           ScalingField, ShortField)
-from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers
+
+from scapy_scion.layers.scion import UDP
 
 # Instructions corresponding to standard metadata
 # List of (bit, length (in bytes), name) tuples

@@ -2,7 +2,7 @@
 Special fields for SCION headers
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from scapy.fields import ByteField, Field, IntField
@@ -65,10 +65,8 @@ class UnixTimestamp(IntField):
 
 
 class ExpiryTime(ByteField):
-    """Hop fields expiry time"""
+    """Hop fields expiry time relative to timestamp in info field"""
 
     def i2repr(self, pkt, i):
-        rel_seconds = (i + 1) * (24 * 60 * 60 / 256)
-        return "Relative: {} seconds".format(
-            rel_seconds,
-        )
+        rel = timedelta(seconds=(i + 1) * (24 * 60 * 60 / 256))
+        return str(rel)

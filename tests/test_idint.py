@@ -1,9 +1,9 @@
 import unittest
 
-from scapy.layers.inet import IP, UDP
+from scapy.layers.inet import IP
 
 from scapy_scion.layers.idint import CBCMAC, IDINT, StackEntry
-from scapy_scion.layers.scion import SCION, ProtocolNumbers, SCIONPath
+from scapy_scion.layers.scion import SCION, UDP, ProtocolNumbers, SCIONPath
 
 
 class TestIDINT(unittest.TestCase):

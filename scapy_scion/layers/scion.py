@@ -18,10 +18,13 @@ from scapy.fields import (BitEnumField, BitField, BitScalingField,
                           IP6Field, IPField, MultipleTypeField, PacketField,
                           PacketListField, ScalingField, ShortField, XBitField,
                           XShortField, XStrField, XStrLenField)
-from scapy.layers.inet import TCP, UDP
+from scapy.layers.inet import IP, TCP
+from scapy.layers.inet import UDP as _inet_udp
+from scapy.layers.inet6 import IPv6
 from scapy.packet import (Packet, Raw, bind_bottom_up, bind_layers,
-                          bind_top_down)
+                          bind_top_down, split_layers)
 from scapy.utils import checksum
+
 from scapy_scion.fields import AsnField, ExpiryTime, UnixTimestamp
 
 # Assigned SCION protocol numbers
@@ -48,6 +51,39 @@ ProtocolNumbers = {
     "Experiment1": 253,
     "Experiment2": 254,
 }
+
+##################
+## UDP Underlay ##
+##################
+
+def _looks_like_scion(payload: bytes) -> bool:
+    """Heuristically detect if a payload looks like SCION, c.f.,
+    https://github.com/scionproto/scion/blob/master/tools/wireshark/scion.lua
+    """
+    if len(payload) < 36:
+        return False
+    try:
+        sc = SCION(payload)
+        assert sc.Version == 0
+        assert sc.NextHdr in ProtocolNames.keys()
+        assert sc.PathType in [0, 1, 2, 3, 4]
+        assert sc.DT < 2 and sc.ST < 2
+        assert sc.DL in [4, 16] and sc.SL in [4, 16]
+        assert sc.RSV == 0
+        assert len(payload) == sc.HdrLen + sc.PayloadLen
+    except AssertionError:
+        return False
+    return True
+
+
+class UDP(_inet_udp):
+    """UDP with SCION payload detection"""
+
+    def guess_payload_class(self, payload):
+        """Heuristic for detecting SCION in UDP"""
+        if _looks_like_scion(payload):
+            return SCION
+        return super().guess_payload_class(payload)
 
 
 #######################
@@ -489,6 +525,12 @@ class EndToEndExt(Packet):
         PacketListField("Options", default=[], length_from=lambda pkt: 4 * pkt.ExtLen + 2,
             pkt_cls=_detect_e2e_option_type)
     ]
+
+# Replace default UDP layer with our overridden UDP layer
+split_layers(IP, _inet_udp, frag=0, proto=17)
+bind_layers(IP, UDP, frag=0, proto=17)
+split_layers(IPv6, _inet_udp, nh=17)
+bind_layers(IPv6, UDP, nh=17)
 
 # Bind default port ranges to IP/UDP underlay
 # https://github.com/scionproto/scion/wiki/Default-port-ranges

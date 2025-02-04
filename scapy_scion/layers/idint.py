@@ -15,8 +15,8 @@ from scapy.fields import (BitEnumField, BitField, BitScalingField,
                           IPField, MultipleTypeField, PacketListField,
                           ShortField, StrLenField, XStrFixedLenField,
                           XStrLenField)
-from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers
+
 from scapy_scion.fields import AsnField, IntegerField
 from scapy_scion.layers import scion
 
@@ -337,4 +337,4 @@ bind_layers(scion.SCION, IDINT, NextHdr=scion.ProtocolNumbers["Experiment1"])
 
 # Bind upper-layer protocols
 # Ignore SCION Hop-by-Hop and End-to-End extensions for now
-bind_layers(IDINT, UDP, NextHdr=scion.ProtocolNumbers['UDP'])
+bind_layers(IDINT, scion.UDP, NextHdr=scion.ProtocolNumbers['UDP'])

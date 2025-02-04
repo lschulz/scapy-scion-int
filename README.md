@@ -34,6 +34,22 @@ pip install -e .[extras]
 python3 -m unittest
 ```
 
+Detecting SCION as UDP Payload
+------------------------------
+SCION headers are encapsulated in UDP. Since SCION does not use a well-known set of UDP ports, the
+presence of SCION is detected heuristically using Scapy's `guess_payload_class()` method. Since
+`guess_payload_class()` must be overridden in the layer above SCION (UDP), we provide a replacement
+for `scapy.layers.inet.UDP` in `scapy_scion.layers.scion.UDP`. `scion.UDP` is a subclass of
+`inet.UDP` that tries to decode its payload as SCION. If unsuccessful the default guessing mechanism
+is invoked. In addition to the heuristic, the [default port ranges][1] of the SCION open-source
+stack are bound to the SCION layer.
+
+[1]: https://github.com/scionproto/scion/wiki/Default-port-ranges
+
+**Importing `scapy_scion.layers.scion` breaks the association of IP/IPv6 with `inet.UDP` and
+replaces it with `scion.UDP`. Make sure to import `scion.UDP` insted of `inet.UDP` when using this
+library.**
+
 Getting Started: Craft and Send a SCION Packet
 ----------------------------------------------
 1. Ping the target AS.
