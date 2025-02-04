@@ -90,9 +90,9 @@ class TestSCION(unittest.TestCase):
         scion = ip[SCION]
         self.assertEqual(scion.NextHdr, ProtocolNumbers["HopByHopExt"])
         hbh = scion[HopByHopExt]
-        self.assertEqual(hbh.ExtLen, 1)
+        self.assertEqual(hbh.ExtLen, 0)
         e2e = scion[EndToEndExt]
-        self.assertEqual(e2e.ExtLen, 6)
+        self.assertEqual(e2e.ExtLen, 5)
 
     def test_scmp_checksum(self):
         """Test checksum update with SCMP payload."""

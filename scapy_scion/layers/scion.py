@@ -457,8 +457,8 @@ class HopByHopExt(Packet):
     fields_desc = [
         ByteEnumField("NextHdr", default=None, enum=ProtocolNames),
         FieldLenField("ExtLen", default=None, fmt="B", length_of="Options",
-            adjust=lambda pkt, x: (x + 2) // 4),
-        PacketListField("Options", default=[], length_from=lambda pkt: 4 * pkt.ExtLen - 2,
+            adjust=lambda pkt, x: (x - 2) // 4),
+        PacketListField("Options", default=[], length_from=lambda pkt: 4 * pkt.ExtLen + 2,
             pkt_cls=_detect_hbh_option_type)
     ]
 
@@ -485,8 +485,8 @@ class EndToEndExt(Packet):
     fields_desc = [
         ByteEnumField("NextHdr", default=None, enum=ProtocolNames),
         FieldLenField("ExtLen", default=None, fmt="B", length_of="Options",
-            adjust=lambda pkt, x: (x + 2) // 4),
-        PacketListField("Options", default=[], length_from=lambda pkt: 4 * pkt.ExtLen - 2,
+            adjust=lambda pkt, x: (x - 2) // 4),
+        PacketListField("Options", default=[], length_from=lambda pkt: 4 * pkt.ExtLen + 2,
             pkt_cls=_detect_e2e_option_type)
     ]
 
