@@ -203,7 +203,7 @@ class SCMP(Packet):
     fields_desc = [
         ByteEnumField("Type", default="Echo Request", enum=SCMPTypes),
         ByteField("Code", default=0),
-        XShortField("Checksum", default=None), # Checksum is computed in SCION layer
+        XShortField("chksum", default=None), # Checksum is computed in SCION layer
         MultipleTypeField([
             (PacketField("Message", default=Unreachable(), pkt_cls=Unreachable),
                 lambda pkt: pkt.Type == SCMP.TypeDestinationUnreachable),

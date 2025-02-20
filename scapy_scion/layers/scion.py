@@ -312,7 +312,8 @@ def scion_checksum(addr_hdr: bytes, payload: bytes, next_hdr: int) -> int:
     data.extend(next_hdr.to_bytes(1, byteorder='big'))
     data.extend(payload)
 
-    return checksum(data.tobytes())
+    chksum = checksum(data.tobytes())
+    return 0xffff if chksum == 0 else chksum
 
 
 class SCION(Packet):
@@ -398,20 +399,13 @@ class SCION(Packet):
             hdr = hdr[:8] + path_type.to_bytes(1, byteorder='big') + hdr[9:]
 
         # Compute L4 checksum
-
-        scmp = self.getlayer('SCMP')
-        if scmp is not None:
-            addr_hdr = hdr[12:12+16+self.DL+self.SL]
-            scmp.Checksum = scion_checksum(addr_hdr, bytes(scmp), ProtocolNumbers['SCMP'])
-            payload = bytes(self.payload) # Update the payload
-
-        udp = self.getlayer('UDP')
-        if udp is not None:
-            addr_hdr = hdr[12:12+16+self.DL+self.SL]
-            udp.chksum = scion_checksum(addr_hdr, bytes(udp), ProtocolNumbers['UDP'])
-            if udp.chksum == 0:
-                udp.chksum = 0xffff
-            payload = bytes(self.payload) # Update the payload
+        for proto in ['SCMP', 'TCP', 'UDP']:
+            l4 = self.getlayer(proto)
+            if l4 is not None:
+                addr_hdr = hdr[12:12+16+self.DL+self.SL]
+                l4.chksum = scion_checksum(addr_hdr, bytes(l4), ProtocolNumbers[proto])
+                payload = bytes(self.payload) # Update the payload
+                break
 
         return hdr + payload
 

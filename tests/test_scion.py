@@ -1,15 +1,14 @@
 import unittest
 
-from scapy.layers.inet import IP
+from scapy.layers.inet import IP, TCP
 from scapy.layers.l2 import Ether
 from scapy.packet import Raw
 
 from scapy_scion.layers.bfd import BFD
-from scapy_scion.layers.scion import (SCION, UDP, AuthenticatorOption,
-                                      EmptyPath, EndToEndExt, HopByHopExt,
-                                      HopField, InfoField, PadNOption,
-                                      ProtocolNumbers, SCIONPath)
-from scapy_scion.layers.scmp import SCMP, ParameterProblem, SCIONerror
+from scapy_scion.layers.scion import (
+    SCION, UDP, AuthenticatorOption, EndToEndExt, HopByHopExt, HopField,
+    InfoField, PadNOption, ProtocolNumbers, SCIONPath)
+from scapy_scion.layers.scmp import SCMP, SCIONerror
 
 
 class TestSCION(unittest.TestCase):
@@ -109,14 +108,14 @@ class TestSCION(unittest.TestCase):
         packet = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00t@u@\x00@\x11\xfb\xfa\x7f\x00\x00\x04\x7f\x00\x00\x05\xc3P\xc3P\x00`\xfez\x00\x00\x00\x01\xca\x12\x00\x10\x01\x00\x00\x00\x00\x01\xff\x00\x00\x00\x01\x11\x00\x01\xff\x00\x00\x00\x01\x10\x7f\x00\x00\x01\x7f\x00\x00\x01\x01\x00 \x00\x01\x00K\xeb`\xb3\xe5l\x00?\x00\x00\x00\x01\x1cO\xa3\xfc\xf6\x86\x00?\x00)\x00\x00\xd8\xee\xea\xa0\xbf\x18\x80\x00\xff\xff\xc7\xd6\x00\x01\x16\x83\xeeg\x9dBZ&'
 
         original = Ether(packet)
-        self.assertEqual(original[SCMP].Checksum, 0xffff)
+        self.assertEqual(original[SCMP].chksum, 0xffff)
 
         # Force recomputation of the checksum
         del original[SCION].HdrLen
-        del original[SCMP].Checksum
+        del original[SCMP].chksum
 
         p = Ether(bytes(original))
-        self.assertEqual(p[SCMP].Checksum, 0xbcd1)
+        self.assertEqual(p[SCMP].chksum, 0xbcd1)
 
     def test_udp_checksum(self):
         """Test checksum update with UDP payload."""
@@ -132,3 +131,18 @@ class TestSCION(unittest.TestCase):
 
         p = Ether(bytes(original))
         self.assertEqual(p.getlayer(UDP, 2).chksum, 0xffe3)
+
+    def test_tcp_checksum(self):
+        """Test checksum update with TCP payload."""
+
+        packet = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00t<\xfb@\x00@\x11\xff\x80\x7f\x00\x00\x04\x7f\x00\x00\x05\xc3P\xc3P\x00`U(\x00\x00\x00\x01\x06\x11\x00\x14\x02@\x00\x00\x00\x01\xff\x00\x00\x00\x01\x11\x00\x01\xff\x00\x00\x00\x01\x10\x00\x02\x00\x00\x7f\x00\x00\x0b\x01\x00\x9d\xaa`\xb3\xe5l\x00?\x00\x00\x00\x01I\x86\x17h\xd7\x15\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xff\xff\x00\x00'
+
+        original = Ether(packet)
+        self.assertEqual(original[TCP].chksum, 0xffff)
+
+        # Force recomputation of the checksum
+        del original[SCION].HdrLen
+        del original[TCP].chksum
+
+        p = Ether(bytes(original))
+        self.assertEqual(p[TCP].chksum, 0x104d)
