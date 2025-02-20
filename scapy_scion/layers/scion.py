@@ -1,7 +1,7 @@
 """
 SCION Headers and Extensions
-https://scion.docs.anapaya.net/en/latest/protocols/scion-header.html
-https://scion.docs.anapaya.net/en/latest/protocols/extension-header.html
+https://docs.scion.org/en/latest/protocols/scion-header.html
+https://docs.scion.org/en/latest/protocols/extension-header.html
 """
 
 import array
@@ -29,7 +29,7 @@ from scapy.utils import checksum
 from scapy_scion.fields import AsnField, ExpiryTime, UnixTimestamp
 
 # Assigned SCION protocol numbers
-# https://scion.docs.anapaya.net/en/latest/protocols/assigned-protocol-numbers.html
+# https://docs.scion.org/en/latest/protocols/assigned-protocol-numbers.html
 
 ProtocolNames = {
     6: "TCP",

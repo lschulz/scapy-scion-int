@@ -1,6 +1,6 @@
 """
 SCION Control Message Protocol
-https://scion.docs.anapaya.net/en/latest/protocols/scmp.html
+https://docs.scion.org/en/latest/protocols/scmp.html
 """
 
 from typing import Optional, Tuple

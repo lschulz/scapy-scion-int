@@ -1,6 +1,6 @@
 """
 Bidirectional Forwarding Detection (BFD) on top of SCION
-https://scion.docs.anapaya.net/en/latest/protocols/bfd.html
+https://docs.scion.org/en/latest/protocols/bfd.html
 """
 
 from scapy.fields import (BitEnumField, BitField, ByteField, FieldLenField,
