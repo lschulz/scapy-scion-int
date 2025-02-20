@@ -11,8 +11,9 @@ import struct
 from datetime import datetime, timezone
 from typing import Iterable, List, Optional, Tuple, Type
 
-from cryptography.hazmat.primitives import cmac
+from cryptography.hazmat.primitives import cmac, hashes
 from cryptography.hazmat.primitives.ciphers import algorithms
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from scapy.fields import (BitEnumField, BitField, BitScalingField,
                           ByteEnumField, ByteField, FieldLenField, FlagsField,
                           IP6Field, IPField, MultipleTypeField, PacketField,
@@ -183,7 +184,21 @@ class SCIONPath(Packet):
             return "Hop field verification failed"
 
     @staticmethod
-    def _calc_mac(inf: InfoField, hf: HopField, beta: int, key: str) -> bytes:
+    def derive_hf_mac_key(key: str|bytes) -> bytes:
+        """
+        Helper function deriving the base64-encoded data plane key from the base64-encoded AS master
+        key as found in the "master0.key" file of a typical SCION AS.
+        """
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=16,
+            salt=b"Derive OF Key",
+            iterations=1000
+        )
+        return base64.b64encode(kdf.derive(base64.b64decode(key)))
+
+    @staticmethod
+    def _calc_mac(inf: InfoField, hf: HopField, beta: int, key: str|bytes) -> bytes:
         ts = int(inf.Timestamp.timestamp())
         exp_time = hf.ExpTime
         ingress = hf.ConsIngress
@@ -194,7 +209,7 @@ class SCIONPath(Packet):
         return c.finalize()
 
     @staticmethod
-    def _init_segment(inf: InfoField, hfs: Iterable[HopField], keys: Iterable[str], seed):
+    def _init_segment(inf: InfoField, hfs: Iterable[HopField], keys: Iterable[str|bytes], seed):
         beta = [seed]
         for hf, key in zip(hfs, keys):
             mac = SCIONPath._calc_mac(inf, hf, int.from_bytes(beta[-1], byteorder='big'), key)
@@ -202,7 +217,7 @@ class SCIONPath(Packet):
             beta.append(bytes(a ^ b for a, b in zip(beta[-1], mac[:2])))
         return beta
 
-    def _verify_hop_field(self, beta: int, key: str):
+    def _verify_hop_field(self, beta: int, key: str|bytes):
         expected = self._calc_mac(self.InfoFields[self.CurrINF], self.HopFields[self.CurrHF],
             beta, key)
         if self.HopFields[self.CurrHF].MAC.to_bytes(6, byteorder='big') != expected[:6]:
@@ -231,7 +246,7 @@ class SCIONPath(Packet):
                 beta = self._init_segment(inf, reversed(seg_hfs), reversed(seg_keys), seed)
                 inf.SegID = int.from_bytes(beta[-2], byteorder='big')
 
-    def egress(self, key: str) -> None:
+    def egress(self, key: str|bytes) -> None:
         """Perform egress processing on the path as a border router would.
         :param key: Base64-encoded hop verification key
         :raises: SCIONPath.VerificationError: Hop field verification failed.
@@ -245,7 +260,7 @@ class SCIONPath(Packet):
 
         self.CurrHF += 1
 
-    def ingress(self, key: str) -> None:
+    def ingress(self, key: str|bytes) -> None:
         """Perform ingress processing on the path as a border router would.
         :param key: Base64-encoded hop verification key
         :raises: SCIONPath.VerificationError: Hop field verification failed.

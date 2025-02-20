@@ -27,14 +27,6 @@ class TestScionProcessing(unittest.TestCase):
         keys["ff00:0:5"], keys["ff00:0:6"], keys["ff00:0:7"],
     ]
 
-    @classmethod
-    def setUpClass(cls):
-        bind_bottom_up(UDP, SCION, dport=50000)
-        bind_bottom_up(UDP, SCION, sport=50000)
-        for port in range(31000, 31100):
-            bind_bottom_up(UDP, SCION, dport=port)
-            bind_bottom_up(UDP, SCION, sport=port)
-
     def test_path_processing(self):
         """Test ingress and egress processing of SCION paths including hop field validation"""
 
@@ -134,3 +126,10 @@ class TestScionProcessing(unittest.TestCase):
         p.ingress(self.keys["ff00:0:6"])
         p.egress(self.keys["ff00:0:6"])
         p.ingress(self.keys["ff00:0:7"])
+
+    def test_mac_key_derivation(self):
+        """Test the AS secret key derivation helper"""
+        self.assertEqual(
+            SCIONPath.derive_hf_mac_key(b"IAOYbTs/CobLFV3T3jt6lQ=="),
+            b"xEg7WN/vMCn+ccb3P7O/5A=="
+        )
