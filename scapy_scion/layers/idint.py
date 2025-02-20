@@ -7,24 +7,26 @@ import math
 import time
 from typing import Callable, List, Optional, Tuple
 
-from cryptography.hazmat.primitives import cmac
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from scapy.fields import (BitEnumField, BitField, BitScalingField,
-                          ByteEnumField, ByteField, ConditionalField, Field,
-                          FieldLenField, FlagsField, IntField, IP6Field,
-                          IPField, MultipleTypeField, PacketListField,
-                          ShortField, StrLenField, XStrFixedLenField,
-                          XStrLenField)
-from scapy.packet import Packet, bind_layers
+from scapy.fields import (
+    BitEnumField, BitField, BitScalingField, ByteEnumField, ByteField, ConditionalField, Field,
+    FlagsField, IntField, IP6Field, IPField, MultipleTypeField, PacketListField, ShortField,
+    StrLenField, XStrFixedLenField, XStrLenField
+)
+from scapy.packet import Packet
 
 from scapy_scion.fields import AsnField, IntegerField
 from scapy_scion.layers import scion
 
+
+IdIntMainOptType = 2
+IdIntEntryOptType = 3
+
 InstFlags = {
-    2**(3 - 0): "NodeID",
-    2**(3 - 1): "NodeCnt",
-    2**(3 - 2): "InIf",
-    2**(3 - 3): "EgIf"
+    2**(3 - 0): "NODE_ID",
+    2**(3 - 1): "NODE_CNT",
+    2**(3 - 2): "IN_IF",
+    2**(3 - 3): "EG_IF"
 }
 
 Instruction = {
@@ -88,10 +90,35 @@ AggrFunctions = {
     4: "Sum"
 }
 
+
+class VerificationError(Exception):
+    def __str__(self):
+        return "IDINT metadata verification failed"
+
+
+def _cbcmac(input: bytes, key: bytes) -> bytes:
+    """Calculate the AES CBC-MAC of the input."""
+    algo = algorithms.AES(key)
+    ecb = Cipher(algo, modes.ECB())
+    enc = ecb.encryptor()
+
+    bs = algo.block_size // 8
+    blocks = int(math.ceil(len(input) / bs))
+
+    mac = bytearray(16)
+    for i in range(blocks):
+        for i, (a, b) in enumerate(zip(mac, input[i*bs:])):
+            mac[i] = a ^ b
+        mac = bytearray(enc.update(mac))
+
+    return bytes(mac)
+
+
 class MetadataLenField(BitField):
     """Length field for metadata slots.
-    The internal representation is an integer number of bytes, the machine representation is encoded
-    as follows:
+
+    The internal representation is an integer number of bytes, the machine
+    representation is encoded as follows:
     Size     Encoding
     0 bytes  000b
     2 bytes  100b
@@ -155,186 +182,233 @@ class MetadataPadField(Field[bytes, bytes]):
         return s + self.i2m(pkt, val)
 
 
-class StackEntry(Packet):
-    """Entry on the ID-INT metadata stack"""
+class IdIntEntry(Packet):
+    """Entry on the ID-INT metadata stack.
 
-    name = "StackEntry"
+    ID-INT entries are stored hop-by-hop SCION options.
+    Alignment requirement: 4. IdIntEntry options are always a multiple of 4 bytes long.
+    """
+
+    name = "IdIntEntry"
 
     fields_desc = [
-        FlagsField("Flags", default=0, size=5, names={
-            2**(4 - 0): "Source",
-            2**(4 - 1): "Ingress",
-            2**(4 - 2): "Egress",
-            2**(4 - 3): "Aggregate",
-            2**(4 - 4): "Encrypted"
+        ByteField("opt_type", default=IdIntEntryOptType),
+        ByteField("opt_data_len", default=None),
+        FlagsField("flags", default=0, size=5, names={
+            2**(4 - 0): "source",
+            2**(4 - 1): "ingress",
+            2**(4 - 2): "egress",
+            2**(4 - 3): "aggregate",
+            2**(4 - 4): "encrypted"
         }),
-        BitField("Reserved1", default=0, size=3),
-        BitField("Hop", default=0, size=6),
-        BitField("Reserved2", default=0, size=2),
-        FlagsField("Mask", default=0, size=4, names=InstFlags),
-        MetadataLenField("ML1", length_of="MD1"),
-        MetadataLenField("ML2", length_of="MD2"),
-        MetadataLenField("ML3", length_of="MD3"),
-        MetadataLenField("ML4", length_of="MD4"),
-        ConditionalField(XStrFixedLenField("Nonce", default=12*b"\x00", length=12),
-            lambda pkt: pkt.Flags.Encrypted),
-        ConditionalField(IntField("NodeID", default=0), lambda pkt: pkt.Mask.NodeID),
-        ConditionalField(ShortField("NodeCnt", default=0), lambda pkt: pkt.Mask.NodeCnt),
-        ConditionalField(ShortField("InIf", default=0), lambda pkt: pkt.Mask.InIf),
-        ConditionalField(ShortField("EgIf", default=0), lambda pkt: pkt.Mask.EgIf),
-        StrLenField("MD1", default=b"", length_from=lambda pkt: pkt.ML1),
-        StrLenField("MD2", default=b"", length_from=lambda pkt: pkt.ML2),
-        StrLenField("MD3", default=b"", length_from=lambda pkt: pkt.ML3),
-        StrLenField("MD4", default=b"", length_from=lambda pkt: pkt.ML4),
-        MetadataPadField("Padding", 4, length_from=lambda pkt: StackEntry._get_md_len(pkt)),
-        XStrFixedLenField("MAC", default=b"\x00\x00\x00\x00", length=4)
+        BitField("reserved1", default=0, size=3),
+        BitField("hop", default=0, size=6),
+        BitField("reserved2", default=0, size=2),
+        FlagsField("mask", default=0, size=4, names=InstFlags),
+        MetadataLenField("ml1", length_of="md1"),
+        MetadataLenField("ml2", length_of="md2"),
+        MetadataLenField("ml3", length_of="md3"),
+        MetadataLenField("ml4", length_of="md4"),
+        ShortField("reserved3", default=0),
+        ConditionalField(XStrFixedLenField("nonce", default=12*b"\x00", length=12),
+            lambda pkt: pkt.flags.encrypted),
+        ConditionalField(IntField("node_id", default=0), lambda pkt: pkt.mask.NODE_ID),
+        ConditionalField(ShortField("node_cnt", default=0), lambda pkt: pkt.mask.NODE_CNT),
+        ConditionalField(ShortField("inif", default=0), lambda pkt: pkt.mask.IN_IF),
+        ConditionalField(ShortField("egif", default=0), lambda pkt: pkt.mask.EG_IF),
+        StrLenField("md1", default=b"", length_from=lambda pkt: pkt.ml1),
+        StrLenField("md2", default=b"", length_from=lambda pkt: pkt.ml2),
+        StrLenField("md3", default=b"", length_from=lambda pkt: pkt.ml3),
+        StrLenField("md4", default=b"", length_from=lambda pkt: pkt.ml4),
+        MetadataPadField("padding", 4, length_from=lambda pkt: pkt._get_md_len()),
+        XStrFixedLenField("mac", default=b"\x00\x00\x00\x00", length=4)
     ]
 
-    @staticmethod
-    def _get_md_len(pkt):
+    def _get_md_len(self) -> int:
         """Returns the length of the metadata fields in bytes."""
         length = 0
-        length += 4 if pkt.Mask.NodeID else 0
-        length += 2 if pkt.Mask.NodeCnt else 0
-        length += 2 if pkt.Mask.InIf else 0
-        length += 2 if pkt.Mask.EgIf else 0
-        length += len(pkt.MD1) + len(pkt.MD2) + len(pkt.MD3) + len(pkt.MD4)
+        length += 4 if self.mask.NODE_ID else 0
+        length += 2 if self.mask.NODE_CNT else 0
+        length += 2 if self.mask.IN_IF else 0
+        length += 2 if self.mask.EG_IF else 0
+        length += len(self.md1) + len(self.md2) + len(self.md3) + len(self.md4)
         return length
 
-    def source_mac(self, hdr: "IDINT", key: bytes) -> bytes:
+    def length(self) -> int:
+        """Returns the entry's total length in bytes."""
+        hdr_len = (12 + self._get_md_len() + 3) & ~0x03
+        if self.flags.encrypted:
+            hdr_len += 12
+        return hdr_len
+
+    def post_build(self, hdr: bytes, payload: bytes):
+        if self.opt_data_len is None:
+            hdr = hdr[:1] + self.length().to_bytes(1, byteorder='big') + hdr[2:]
+        return hdr + payload
+
+    def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
+        return b"", s
+
+    def calc_source_mac(self, hdr: "IdIntOption", key: bytes) -> bytes:
         """Compute the MAC for the source hop.
         :param hdr: IDINT main header. The source MAC includes fields from the main header.
         :param key: AES-128 key for AES-MAC computation.
         :returns: 4-byte MAC
         """
         hdr = hdr.copy()
-        hdr.Length = 0
-        hdr.NextHdr = 0
-        hdr.DelayHops = 0
-        hdr.TelemetryStack = []
+        hdr.tos = 0
+        hdr.delay_hops = 0
+        hdr.stack = []
         hdr.remove_payload()
-        mac = CBCMAC(bytes(hdr) + bytes(self)[:-4], key)
+        mac = _cbcmac(bytes(hdr) + bytes(self)[:-4], key)
         return mac[:4]
 
-    def mac(self, prev_mac: bytes, key: bytes) -> bytes:
+    def calc_mac(self, prev_mac: bytes, key: bytes) -> bytes:
         """Compute the metadata MAC.
         :param prev_mac: MAC of the previous stack entry.
         :param key: AES-128 key for AES-MAC computation.
         :returns: 4-byte MAC
         """
-        mac = CBCMAC(bytes(self)[:-4] + prev_mac, key)
+        mac = _cbcmac(bytes(self)[:-4] + prev_mac, key)
         return mac[:4]
 
-    def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
-        return b"", s
 
+class IdIntOption(Packet):
+    """ID-INT SCION hop-by-hop option main header.
 
-def CBCMAC(input: bytes, key: bytes) -> bytes:
-    algo = algorithms.AES(key)
-    ecb = Cipher(algo, modes.ECB())
-    enc = ecb.encryptor()
+    Alignment requirement: 4n+2. IdIntEntry options are always a multiple of 4 bytes long.
 
-    bs = algo.block_size // 8
-    blocks = int(math.ceil(len(input) / bs))
-
-    mac = bytearray(16)
-    for i in range(blocks):
-        for i, (a, b) in enumerate(zip(mac, input[i*bs:])):
-            mac[i] = a ^ b
-        mac = bytearray(enc.update(mac))
-
-    return bytes(mac)
-
-
-class IDINT(Packet):
-    """ID-INT SCION extension header"""
+    The main ID-INT option header is immediately followed by one or more IdIntEntry options and
+    zero or more PadN options.
+    """
 
     name = "ID-INT"
 
-    class VerificationError(Exception):
-        def __str__(self):
-            return "IDINT metadata verification failed"
-
     fields_desc = [
-        BitField("Version", default=0, size=3),
-        FlagsField("Flags", default=0, size=5, names={
-            2**(4 - 0): "Infrastructure",
-            2**(4 - 1): "Discard",
-            2**(4 - 2): "Encrypted",
-            2**(4 - 3): "SizeExceeded",
+        ByteField("opt_type", default=IdIntMainOptType),
+        ByteField("opt_data_len", default=None),
+        BitField("version", default=0, size=3),
+        FlagsField("flags", default=0, size=5, names={
+            2**(4 - 0): "infrastructure",
+            2**(4 - 1): "discard",
+            2**(4 - 2): "encrypted",
+            2**(4 - 3): "size_exceeded",
         }),
-        BitEnumField("AggrMode", default=0, size=2, enum={
-            0: "Off",
-            1: "AS",
-            2: "Border",
-            3: "Internal"
+        BitEnumField("aggregation", default=0, size=2, enum={
+            0: "off",
+            1: "as",
+            2: "border",
+            3: "internal"
         }),
-        BitEnumField("Verifier", default=1, size=2, enum={
-            0: "ThirdParty",
-            1: "Destination",
-            2: "Source"
+        BitEnumField("verifier", default=1, size=2, enum={
+            0: "third_party",
+            1: "destination",
+            2: "source"
         }),
-        BitEnumField("VT", default="IP", size=2, enum=scion.SCION.address_types),
-        BitScalingField("VL", default=4, size=2, scaling=4, offset=4, unit="bytes"),
-        FieldLenField("Length", default=None, fmt="B", length_of="TelemetryStack",
-            adjust=lambda pkt, x: x // 4),
-        ByteEnumField("NextHdr", default=None, enum=scion.ProtocolNames),
-        BitField("DelayHops", default=0, size=6),
-        BitField("Reserved1", default=0, size=2),
-        ByteField("MaxStackLen", default=255),
-        FlagsField("InstFlags", default=0, size=4, names=InstFlags),
-        BitEnumField("AF1", default=0, size=3, enum=AggrFunctions),
-        BitEnumField("AF2", default=0, size=3, enum=AggrFunctions),
-        BitEnumField("AF3", default=0, size=3, enum=AggrFunctions),
-        BitEnumField("AF4", default=0, size=3, enum=AggrFunctions),
-        ByteEnumField("Inst1", default=0xff, enum=Instruction),
-        ByteEnumField("Inst2", default=0xff, enum=Instruction),
-        ByteEnumField("Inst3", default=0xff, enum=Instruction),
-        ByteEnumField("Inst4", default=0xff, enum=Instruction),
-        IntegerField("SourceTS", default=time.time_ns() % (2**48), sz=6),
-        ShortField("SourcePort", default=0),
-        ConditionalField(ShortField("VerifISD", default=1), lambda pkt: pkt.Verifier == 0),
-        ConditionalField(AsnField("VerifAS", default="ff00:0:1"), lambda pkt: pkt.Verifier == 0),
+        BitEnumField("vt", default="IP", size=2, enum=scion.SCION.address_types),
+        BitScalingField("vl", default=4, size=2, scaling=4, offset=4, unit="bytes"),
+        ByteField("stack_len", default=None),
+        ByteField("tos", default=None),
+        BitField("delay_hops", default=0, size=6),
+        BitField("reserved", default=0, size=10),
+        FlagsField("inst_flags", default=0, size=4, names=InstFlags),
+        BitEnumField("af1", default=0, size=3, enum=AggrFunctions),
+        BitEnumField("af2", default=0, size=3, enum=AggrFunctions),
+        BitEnumField("af3", default=0, size=3, enum=AggrFunctions),
+        BitEnumField("af4", default=0, size=3, enum=AggrFunctions),
+        ByteEnumField("inst1", default=0xff, enum=Instruction),
+        ByteEnumField("inst2", default=0xff, enum=Instruction),
+        ByteEnumField("inst3", default=0xff, enum=Instruction),
+        ByteEnumField("inst4", default=0xff, enum=Instruction),
+        IntegerField("source_ts", default=time.time_ns() % (2**48), sz=6),
+        ShortField("source_port", default=0),
+        ConditionalField(ShortField("verif_isd", default=1), lambda pkt: pkt.verifier == 0),
+        ConditionalField(AsnField("verif_asn", default="ff00:0:1"), lambda pkt: pkt.verifier == 0),
         ConditionalField(MultipleTypeField([
-            (IPField("VerifAddr", default="127.0.0.1"),
-             lambda pkt: pkt.VT == 0 and pkt.VL == 4),
-            (IP6Field("VerifAddr", default="::1"),
-             lambda pkt: pkt.VT == 0 and pkt.VL == 16)],
-            XStrLenField("VerifAddr", default=None, length_from=lambda pkt: pkt.VL)
-        ), lambda pkt: pkt.Verifier == 0),
-        PacketListField("TelemetryStack", default=[], pkt_cls=StackEntry,
-            length_from=lambda pkt: 4*pkt.Length)
+            (IPField("verif_host", default="127.0.0.1"),
+             lambda pkt: pkt.vt == 0 and pkt.vl == 4),
+            (IP6Field("verif_host", default="::1"),
+             lambda pkt: pkt.vt == 0 and pkt.vl == 16)],
+            XStrLenField("verif_host", default=None, length_from=lambda pkt: pkt.vl)
+        ), lambda pkt: pkt.verifier == 0),
+        PacketListField("stack", default=[], length_from=lambda pkt: 4*pkt.stack_len,
+            pkt_cls=scion._detect_hbh_option_type)
     ]
 
+    def self_build(self) -> bytes:
+        if self.stack_len is None:
+            self.stack_len = self.stack_length() // 4
+        else:
+            n = self.stack_length() // 4
+            if n < self.stack_len:
+                m = self.stack_len - n
+                self.stack.append(scion.PadNOption(OptData=(4 * m - 2) * b"\x00"))
+
+        if self.tos is None:
+            tos = self.stack_entries() - 1
+            tos_offset = 0
+            if tos >= 0:
+                for opt in self.stack[:tos]:
+                    tos_offset += opt.length()
+            self.tos = tos_offset // 4
+
+        return super().self_build()
+
+    def post_build(self, hdr: bytes, payload: bytes):
+        if self.opt_data_len is None:
+            hdr_len = 22
+            if self.verifier == 0:
+                hdr_len += 8 + self.vl
+            hdr = hdr[:1] + hdr_len.to_bytes(1, byteorder='big') + hdr[2:]
+        return hdr + payload
+
+    def stack_length(self) -> int:
+        """Returns the allocated length of the telemetry stack in bytes."""
+        length = 0
+        for opt in self.stack:
+            if type(opt) == IdIntEntry:
+                length += opt.length()
+            else:
+                length += len(bytes(opt))
+        return length
+
+    def stack_entries(self) -> int:
+        """Returns the number of telemetry stack entries."""
+        count = 0
+        while count < len(self.stack) and type(self.stack[count]) == IdIntEntry:
+            count += 1
+        return count
+
     def verify(self, keys: List[bytes], update: bool = False) -> None:
-        """Computes the metadata MACs. Raises IDINT.VerificationError if an incorrect MAC is
+        """Computes the metadata MACs. Raises VerificationError if an incorrect MAC is
         encountered unless `update` is set.
+
         :param keys: AES-128 keys for AES-CMAC computation in source to sink order.
         :param update: Overwrite the current MACs with the correct ones. No MAC errors are reported.
-        :raises: IDINT.VerificationError: Metadata verification failed.
+        :raises: VerificationError: Metadata verification failed.
         """
-        if len(self.TelemetryStack) == 0:
+        entries = self.stack_entries()
+        if entries == 0:
             return
-        if len(keys) < len(self.TelemetryStack):
-            raise Exception("Not enough keys")
+        if len(keys) < entries:
+            raise ValueError("Not enough keys")
+
         # Source
-        mac = self.TelemetryStack[-1].source_mac(self, keys[0])
+        mac = self.stack[0].calc_source_mac(self, keys[0])
         if update:
-            self.TelemetryStack[-1].MAC = mac
-        elif self.TelemetryStack[-1].MAC != mac:
-            raise IDINT.VerificationError()
+            self.stack[0].mac = mac
+        elif self.stack[0].mac != mac:
+            raise IdIntOption.VerificationError()
+
         # Transit hops
-        for md, key in zip(reversed(self.TelemetryStack[:-1]), keys[1:]):
-            mac = md.mac(mac, key)
+        for md, key in zip(self.stack[1:entries], keys[1:]):
+            mac = md.calc_mac(mac, key)
             if update:
-                md.MAC = mac
-            elif md.MAC != mac:
-                raise IDINT.VerificationError()
+                md.mac = mac
+            elif md.mac != mac:
+                raise IdIntOption.VerificationError()
 
 
-# Bind to SCION
-bind_layers(scion.SCION, IDINT, NextHdr=scion.ProtocolNumbers["Experiment1"])
-
-# Bind upper-layer protocols
-# Ignore SCION Hop-by-Hop and End-to-End extensions for now
-bind_layers(IDINT, scion.UDP, NextHdr=scion.ProtocolNumbers['UDP'])
+# Bind to SCION HBH extension header
+scion.add_hbh_option_type(IdIntMainOptType, IdIntOption)
+scion.add_hbh_option_type(IdIntEntryOptType, IdIntEntry)
