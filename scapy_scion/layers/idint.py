@@ -209,7 +209,6 @@ class IdIntEntry(Packet):
         MetadataLenField("ml2", length_of="md2"),
         MetadataLenField("ml3", length_of="md3"),
         MetadataLenField("ml4", length_of="md4"),
-        ShortField("reserved3", default=0),
         ConditionalField(XStrFixedLenField("nonce", default=12*b"\x00", length=12),
             lambda pkt: pkt.flags.encrypted),
         ConditionalField(IntField("node_id", default=0), lambda pkt: pkt.mask.NODE_ID),
@@ -220,7 +219,7 @@ class IdIntEntry(Packet):
         StrLenField("md2", default=b"", length_from=lambda pkt: pkt.ml2),
         StrLenField("md3", default=b"", length_from=lambda pkt: pkt.ml3),
         StrLenField("md4", default=b"", length_from=lambda pkt: pkt.ml4),
-        MetadataPadField("padding", 4, length_from=lambda pkt: pkt._get_md_len()),
+        MetadataPadField("padding", 4, length_from=lambda pkt: pkt._get_md_len() + 2),
         XStrFixedLenField("mac", default=b"\x00\x00\x00\x00", length=4)
     ]
 
@@ -236,10 +235,10 @@ class IdIntEntry(Packet):
 
     def length(self) -> int:
         """Returns the entry's total length in bytes."""
-        hdr_len = (12 + self._get_md_len() + 3) & ~0x03
+        hdr_len = 10 + self._get_md_len()
         if self.flags.encrypted:
             hdr_len += 12
-        return hdr_len
+        return (hdr_len + 3) & ~0x03
 
     def post_build(self, hdr: bytes, payload: bytes):
         if self.opt_data_len is None:

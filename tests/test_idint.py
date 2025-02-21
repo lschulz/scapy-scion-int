@@ -69,7 +69,7 @@ class TestIDINT(unittest.TestCase):
                     IdIntEntry(flags="ingress+egress", hop=1, mask="NODE_ID",
                         node_id=2, md1=(3).to_bytes(4, 'big'), md2=(4).to_bytes(2, 'big')),
                     IdIntEntry(flags="ingress", hop=2, mask="NODE_ID",
-                        node_id=3, md1=(5).to_bytes(4, 'big'), md2=(6).to_bytes(2, 'big')),
+                        node_id=3, md1=(5).to_bytes(4, 'big')),
                     PadNOption(OptData=b"\x00\x00")
                 ]
             )
@@ -100,7 +100,7 @@ class TestIDINT(unittest.TestCase):
         self.assertEqual(stack[0].ml4, 0)
         self.assertEqual(int.from_bytes(stack[0].md1, 'big'), 1)
         self.assertEqual(int.from_bytes(stack[0].md2, 'big'), 2)
-        self.assertEqual(len(stack[0].padding), 2)
+        self.assertEqual(len(stack[0].padding), 0)
         self.assertEqual(stack[1].hop, 1)
         self.assertEqual(stack[1].ml1, 4)
         self.assertEqual(stack[1].ml2, 2)
@@ -108,14 +108,13 @@ class TestIDINT(unittest.TestCase):
         self.assertEqual(stack[1].ml4, 0)
         self.assertEqual(int.from_bytes(stack[1].md1, 'big'), 3)
         self.assertEqual(int.from_bytes(stack[1].md2, 'big'), 4)
-        self.assertEqual(len(stack[1].padding), 2)
+        self.assertEqual(len(stack[1].padding), 0)
         self.assertEqual(stack[2].hop, 2)
         self.assertEqual(stack[2].ml1, 4)
-        self.assertEqual(stack[2].ml2, 2)
+        self.assertEqual(stack[2].ml2, 0)
         self.assertEqual(stack[2].ml3, 0)
         self.assertEqual(stack[2].ml4, 0)
         self.assertEqual(int.from_bytes(stack[2].md1, 'big'), 5)
-        self.assertEqual(int.from_bytes(stack[2].md2, 'big'), 6)
         self.assertEqual(len(stack[2].padding), 2)
 
 
