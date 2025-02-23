@@ -181,8 +181,8 @@ class MetadataPadField(Field[bytes, bytes]):
 class IdIntEntry(Packet):
     """Entry on the ID-INT metadata stack.
 
-    ID-INT entries are stored hop-by-hop SCION options.
-    Alignment requirement: 4. IdIntEntry options are always a multiple of 4 bytes long.
+    ID-INT entries are stored hop-by-hop SCION options. Alignment requirement:
+    4. IdIntEntry options are always a multiple of 4 bytes long.
     """
 
     name = "IdIntEntry"
@@ -246,9 +246,13 @@ class IdIntEntry(Packet):
 
     def calc_source_mac(self, hdr: "IdIntOption", key: bytes) -> bytes:
         """Compute the MAC for the source hop.
-        :param hdr: IDINT main header. The source MAC includes fields from the main header.
-        :param key: AES-128 key for AES-MAC computation.
-        :returns: 4-byte MAC
+
+        ### Parameters
+        hdr: IDINT main header. The source MAC includes fields from the main header.
+        key: AES-128 key for AES-MAC computation.
+
+        ### Returns
+        4-byte MAC
         """
         hdr = hdr.copy()
         hdr.tos = 0
@@ -260,9 +264,13 @@ class IdIntEntry(Packet):
 
     def calc_mac(self, prev_mac: bytes, key: bytes) -> bytes:
         """Compute the metadata MAC.
-        :param prev_mac: MAC of the previous stack entry.
-        :param key: AES-128 key for AES-MAC computation.
-        :returns: 4-byte MAC
+
+        ### Parameters
+        prev_mac: MAC of the previous stack entry.
+        key: AES-128 key for AES-MAC computation.
+
+        ### Returns
+        4-byte MAC
         """
         mac = _cbcmac(bytes(self)[:-4] + prev_mac, key)
         return mac[:4]
@@ -271,10 +279,11 @@ class IdIntEntry(Packet):
 class IdIntOption(Packet):
     """ID-INT SCION hop-by-hop option main header.
 
-    Alignment requirement: 4n+2. IdIntEntry options are always a multiple of 4 bytes long.
+    Alignment requirement: 4n+2. IdIntEntry options are always a multiple of 4
+    bytes long.
 
-    The main ID-INT option header is immediately followed by one or more IdIntEntry options and
-    zero or more PadN options.
+    The main ID-INT option header is immediately followed by one or more
+    IdIntEntry options and zero or more PadN options.
     """
 
     name = "ID-INT"
@@ -337,7 +346,7 @@ class IdIntOption(Packet):
             n = self.stack_length() // 4
             if n < self.stack_len:
                 m = self.stack_len - n
-                self.stack.append(scion.PadNOption(OptData=(4 * m - 2) * b"\x00"))
+                self.stack.append(scion.PadNOption(opt_data=(4 * m - 2) * b"\x00"))
 
         if self.tos is None:
             tos = self.stack_entries() - 1
@@ -375,12 +384,16 @@ class IdIntOption(Packet):
         return count
 
     def verify(self, keys: List[bytes], update: bool = False) -> None:
-        """Computes the metadata MACs. Raises VerificationError if an incorrect MAC is
-        encountered unless `update` is set.
+        """Computes the metadata MACs. Raises VerificationError if an incorrect
+        MAC is encountered unless `update` is set.
 
-        :param keys: AES-128 keys for AES-CMAC computation in source to sink order.
-        :param update: Overwrite the current MACs with the correct ones. No MAC errors are reported.
-        :raises: VerificationError: Metadata verification failed.
+        ### Parameters
+        keys: AES-128 keys for AES-CMAC computation in source to sink order.
+        update: Overwrite the current MACs with the correct ones. No MAC errors
+            are reported.
+
+        ### Exceptions
+        VerificationError: Metadata verification failed.
         """
         entries = self.stack_entries()
         if entries == 0:

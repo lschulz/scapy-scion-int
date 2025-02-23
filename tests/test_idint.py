@@ -13,8 +13,8 @@ class TestIDINT(unittest.TestCase):
     def test_stack_padding(self):
         """Test padding of the telemetry stack with PadN options"""
 
-        p = IP()/UDP()/SCION(Path=SCIONPath())
-        p /= HopByHopExt(Options=[
+        p = IP()/UDP()/SCION(path=SCIONPath())
+        p /= HopByHopExt(options=[
             IdIntOption(
                 verifier="third_party",
                 vt="IP",
@@ -33,7 +33,7 @@ class TestIDINT(unittest.TestCase):
         ])
 
         p = IP(bytes(p))
-        opts = p[HopByHopExt].Options
+        opts = p[HopByHopExt].options
         self.assertEqual(len(opts), 1)
         self.assertIsInstance(opts[0], IdIntOption)
         self.assertEqual(opts[0].opt_data_len, 34)
@@ -44,13 +44,13 @@ class TestIDINT(unittest.TestCase):
         self.assertIsInstance(stack[0], IdIntEntry)
         self.assertEqual(stack[0].opt_data_len, 24)
         self.assertIsInstance(stack[1], PadNOption)
-        self.assertEqual(stack[1].OptDataLen, 102)
+        self.assertEqual(stack[1].opt_data_len, 102)
 
     def test_idint_verification(self):
         """Test ID-INT header verification"""
 
-        p = IP()/UDP()/SCION(Path=SCIONPath())
-        p /= HopByHopExt(Options=[
+        p = IP()/UDP()/SCION(path=SCIONPath())
+        p /= HopByHopExt(options=[
             IdIntOption(
                 flags="discard",
                 aggregation="as",
@@ -70,7 +70,7 @@ class TestIDINT(unittest.TestCase):
                         node_id=2, md1=(3).to_bytes(4, 'big'), md2=(4).to_bytes(2, 'big')),
                     IdIntEntry(flags="ingress", hop=2, mask="node_id",
                         node_id=3, md1=(5).to_bytes(4, 'big')),
-                    PadNOption(OptData=b"\x00\x00")
+                    PadNOption(opt_data=b"\x00\x00")
                 ]
             )
         ])
@@ -84,7 +84,7 @@ class TestIDINT(unittest.TestCase):
         p[IdIntOption].verify(keys, update=True)
 
         self.assertEqual(p.layers(), [IP, UDP, SCION, HopByHopExt])
-        self.assertEqual(p[SCION].HdrLen, 40)
+        self.assertEqual(p[SCION].hlen, 40 // 4)
         idint = p[IdIntOption]
         idint.verify(keys)
         self.assertEqual(idint.flags.value, 0x08)

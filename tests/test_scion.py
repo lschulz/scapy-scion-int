@@ -21,59 +21,59 @@ class TestSCION(unittest.TestCase):
         p = Ether(packet)
         self.assertEqual(p.layers(), [Ether, IP, UDP, SCION, BFD])
         scion = p[SCION]
-        self.assertEqual(scion.FlowID, 0xdead)
-        self.assertEqual(scion.HdrLen, 68)
-        self.assertEqual(scion.DstAS, "ff00:0:110")
-        self.assertEqual(scion.SrcAS, "ff00:0:111")
-        self.assertEqual(scion.DstHostAddr, "127.0.0.4")
-        self.assertEqual(scion.SrcHostAddr, "127.0.0.5")
-        self.assertEqual(scion.Path.getlayer(InfoField).SegID, 0x0)
-        self.assertEqual(scion.Path.getlayer(HopField, 1).MAC, 0xbb28accef0ac)
-        self.assertEqual(scion.Path.getlayer(HopField, 2).MAC, 0x0)
+        self.assertEqual(scion.fl, 0xdead)
+        self.assertEqual(scion.hlen, 68 // 4)
+        self.assertEqual(scion.dst_asn, "ff00:0:110")
+        self.assertEqual(scion.src_asn, "ff00:0:111")
+        self.assertEqual(scion.dst_host, "127.0.0.4")
+        self.assertEqual(scion.src_host, "127.0.0.5")
+        self.assertEqual(scion.path.getlayer(InfoField).segid, 0x0)
+        self.assertEqual(scion.path.getlayer(HopField, 1).mac, 0xbb28accef0ac)
+        self.assertEqual(scion.path.getlayer(HopField, 2).mac, 0x0)
         bfd = p[BFD]
-        self.assertEqual(bfd.getfieldval("MyDiscriminator"), 2471254535)
+        self.assertEqual(bfd.getfieldval("my_discriminator"), 2471254535)
 
         # SCMP Echo Request
         packet = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00t@u@\x00@\x11\xfb\xfa\x7f\x00\x00\x04\x7f\x00\x00\x05\xc3P\xc3P\x00`\xfez\x00\x00\x00\x01\xca\x12\x00\x10\x01\x00\x00\x00\x00\x01\xff\x00\x00\x00\x01\x11\x00\x01\xff\x00\x00\x00\x01\x10\x7f\x00\x00\x01\x7f\x00\x00\x01\x01\x00 \x00\x01\x00K\xeb`\xb3\xe5l\x00?\x00\x00\x00\x01\x1cO\xa3\xfc\xf6\x86\x00?\x00)\x00\x00\xd8\xee\xea\xa0\xbf\x18\x80\x00\xbc\xd1\xc7\xd6\x00\x01\x16\x83\xeeg\x9dBZ&'
         p = Ether(packet)
         self.assertEqual(p.layers(), [Ether, IP, UDP, SCION, SCMP, Raw])
         scion = p[SCION]
-        self.assertEqual(scion.FlowID, 0x1)
-        self.assertEqual(scion.HdrLen, 72)
-        self.assertEqual(scion.DstAS, "ff00:0:111")
-        self.assertEqual(scion.SrcAS, "ff00:0:110")
-        self.assertEqual(scion.DstHostAddr, "127.0.0.1")
-        self.assertEqual(scion.SrcHostAddr, "127.0.0.1")
-        self.assertEqual(scion.Path.getlayer(InfoField).SegID, 0x4beb)
-        self.assertEqual(scion.Path.getlayer(HopField, 1).MAC, 0x1c4fa3fcf686)
-        self.assertEqual(scion.Path.getlayer(HopField, 2).MAC, 0xd8eeeaa0bf18)
+        self.assertEqual(scion.fl, 0x1)
+        self.assertEqual(scion.hlen, 72 // 4)
+        self.assertEqual(scion.dst_asn, "ff00:0:111")
+        self.assertEqual(scion.src_asn, "ff00:0:110")
+        self.assertEqual(scion.dst_host, "127.0.0.1")
+        self.assertEqual(scion.src_host, "127.0.0.1")
+        self.assertEqual(scion.path.getlayer(InfoField).segid, 0x4beb)
+        self.assertEqual(scion.path.getlayer(HopField, 1).mac, 0x1c4fa3fcf686)
+        self.assertEqual(scion.path.getlayer(HopField, 2).mac, 0xd8eeeaa0bf18)
         scmp = p[SCMP]
-        self.assertEqual(scmp.Type, scmp.TypeEchoRequest)
-        self.assertEqual(scmp.Message.Identifier, 51158)
+        self.assertEqual(scmp.type, scmp.TypeEchoRequest)
+        self.assertEqual(scmp.message.id, 51158)
 
         # SCMP Parameter Problem
         packet = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00\x98@u@\x00@\x11\xfb\xfa\x7f\x00\x00\x04\x7f\x00\x00\x05\xc3P\xc3P\x00\x84\xfez\x00\x00\x00\x01\xca\x12\x004\x01\x00\x00\x00\x00\x01\xff\x00\x00\x00\x01\x11\x00\x01\xff\x00\x00\x00\x01\x10\x7f\x00\x00\x01\x7f\x00\x00\x01\x01\x00 \x00\x01\x00K\xeb`\xb3\xe5l\x00?\x00\x00\x00\x01\x1cO\xa3\xfc\xf6\x86\x00?\x00)\x00\x00\xd8\xee\xea\xa0\xbf\x18\x04\x11\xef:\x00\x00\x00\x00\x00\x00\x00\x01\x11\t\x00\x08\x00\x00\x00\x00\x00\x01\xff\x00\x00\x00\x00\x01\x00\x01\xff\x00\x00\x00\x00\x02\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x02\x1e'
         p = Ether(bytes(packet))
         self.assertEqual(p.layers(), [Ether, IP, UDP, SCION, SCMP, SCIONerror, UDP])
         scmp = p[SCMP]
-        self.assertEqual(scmp.Type, scmp.TypeParameterProblem)
-        self.assertEqual(scmp.Code, 17)
-        self.assertEqual(scmp.Message.Pointer, 0)
+        self.assertEqual(scmp.type, scmp.TypeParameterProblem)
+        self.assertEqual(scmp.code, 17)
+        self.assertEqual(scmp.message.pointer, 0)
 
         # SCION/UDP (OneHopPath)
         packet = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00h<\xfb@\x00@\x11\xff\x80\x7f\x00\x00\x04\x7f\x00\x00\x05\xc3P\xc3P\x00T\xfen\x00\x00\x00\x01\x11\x11\x00\x08\x02@\x00\x00\x00\x01\xff\x00\x00\x00\x01\x11\x00\x01\xff\x00\x00\x00\x01\x10\x00\x02\x00\x00\x7f\x00\x00\x0b\x01\x00\x9d\xaa`\xb3\xe5l\x00?\x00\x00\x00\x01I\x86\x17h\xd7\x15\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x80\xc8\x00\x00\x00\x08\xff\xe3'
         p = Ether(packet)
         self.assertEqual(p.layers(), [Ether, IP, UDP, SCION, UDP])
         scion = p[SCION]
-        self.assertEqual(scion.FlowID, 0x1)
-        self.assertEqual(scion.HdrLen, 68)
-        self.assertEqual(scion.DstAS, "ff00:0:111")
-        self.assertEqual(scion.SrcAS, "ff00:0:110")
-        self.assertEqual(scion.DstHostAddr, b"\x00\x02\x00\x00")
-        self.assertEqual(scion.SrcHostAddr, "127.0.0.11")
-        self.assertEqual(scion.Path.getlayer(InfoField).SegID, 0x9daa)
-        self.assertEqual(scion.Path.getlayer(HopField, 1).MAC, 0x49861768d715)
-        self.assertEqual(scion.Path.getlayer(HopField, 2).MAC, 0x0)
+        self.assertEqual(scion.fl, 0x1)
+        self.assertEqual(scion.hlen, 68 // 4)
+        self.assertEqual(scion.dst_asn, "ff00:0:111")
+        self.assertEqual(scion.src_asn, "ff00:0:110")
+        self.assertEqual(scion.dst_host, b"\x00\x02\x00\x00")
+        self.assertEqual(scion.src_host, "127.0.0.11")
+        self.assertEqual(scion.path.getlayer(InfoField).segid, 0x9daa)
+        self.assertEqual(scion.path.getlayer(HopField, 1).mac, 0x49861768d715)
+        self.assertEqual(scion.path.getlayer(HopField, 2).mac, 0x0)
         udp = scion[UDP]
         self.assertEqual(udp.chksum, 0xffe3)
 
@@ -82,25 +82,25 @@ class TestSCION(unittest.TestCase):
 
         p = IP()/UDP()
         p = p/SCION(
-            Path=SCIONPath(
-                Seg0Len=2,
-                InfoFields=[InfoField()],
-                HopFields=[HopField(), HopField()]
+            path=SCIONPath(
+                seg0_len=2,
+                info_fields=[InfoField()],
+                hop_fields=[HopField(), HopField()]
             )
         )
-        p = p/HopByHopExt(Options=[PadNOption()])
-        p = p/EndToEndExt(Options=[PadNOption(OptData=b"\x00"), AuthenticatorOption()])
+        p = p/HopByHopExt(options=[PadNOption()])
+        p = p/EndToEndExt(options=[PadNOption(opt_data=b"\x00"), AuthenticatorOption()])
         p = p/SCMP()
 
         ip = IP(bytes(p))
         self.assertEqual(ip[UDP].sport, 30042)
         self.assertEqual(ip[UDP].dport, 30042)
         scion = ip[SCION]
-        self.assertEqual(scion.NextHdr, ProtocolNumbers["HopByHopExt"])
+        self.assertEqual(scion.nh, ProtocolNumbers["HopByHopExt"])
         hbh = scion[HopByHopExt]
-        self.assertEqual(hbh.ExtLen, 0)
+        self.assertEqual(hbh.ext_len, 0)
         e2e = scion[EndToEndExt]
-        self.assertEqual(e2e.ExtLen, 5)
+        self.assertEqual(e2e.ext_len, 5)
 
     def test_scmp_checksum(self):
         """Test checksum update with SCMP payload."""
@@ -111,7 +111,7 @@ class TestSCION(unittest.TestCase):
         self.assertEqual(original[SCMP].chksum, 0xffff)
 
         # Force recomputation of the checksum
-        del original[SCION].HdrLen
+        del original[SCION].hlen
         del original[SCMP].chksum
 
         p = Ether(bytes(original))
@@ -126,7 +126,7 @@ class TestSCION(unittest.TestCase):
         self.assertEqual(original.getlayer(UDP, 2).chksum, 0xffff)
 
         # Force recomputation of the checksum
-        del original[SCION].HdrLen
+        del original[SCION].hlen
         del original[UDP].chksum
 
         p = Ether(bytes(original))
@@ -141,7 +141,7 @@ class TestSCION(unittest.TestCase):
         self.assertEqual(original[TCP].chksum, 0xffff)
 
         # Force recomputation of the checksum
-        del original[SCION].HdrLen
+        del original[SCION].hlen
         del original[TCP].chksum
 
         p = Ether(bytes(original))

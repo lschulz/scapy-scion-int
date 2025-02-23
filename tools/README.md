@@ -46,5 +46,5 @@ Hop br3-ff00_0_5-1#i > br3-ff00_0_5-2#i | CurrINF = 2 CurrHF  = 6 InfoFields[1]/
 Hop br3-ff00_0_5-2#2 > br3-ff00_0_6-1#1 | CurrHF  = 7 InfoFields[2]/SegID= 59853
 Hop br3-ff00_0_6-1#i > br3-ff00_0_6-2#i |
 Hop br3-ff00_0_6-2#2 > br3-ff00_0_7-1#1 | CurrHF  = 8 InfoFields[2]/SegID= 13333
-Hop br3-ff00_0_7-1#i > Dispatcher       |
+Hop br3-ff00_0_7-1#i > Destination      |
 ```

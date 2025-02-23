@@ -5,15 +5,16 @@ https://docs.scion.org/en/latest/protocols/scmp.html
 
 from typing import Optional, Tuple
 
-from scapy.fields import (ByteEnumField, ByteField, IntField, LongField,
-                          MultipleTypeField, PacketField, ShortField,
-                          XShortField, XStrField)
+from scapy.fields import (
+    ByteEnumField, ByteField, IntField, LongField, MultipleTypeField,
+    PacketField, ShortField, XShortField, XStrField
+)
 from scapy.packet import Packet, bind_layers
 
 from ..fields import AsnField
-from .scion import SCION, TCP, UDP, EndToEndExt, HopByHopExt, ProtocolNumbers
+from .scion import SCION, EndToEndExt, HopByHopExt, ProtocolNumbers
 
-SCMPTypes = {
+_scmp_types = {
     # Error Messages
     1: "Destination Unreachable",
     2: "Packet Too Big",
@@ -53,7 +54,7 @@ class Unreachable(_ScmpMessage):
     }
 
     fields_desc = [
-        IntField("Unused", default=0)
+        IntField("unused", default=0)
     ]
 
 
@@ -64,7 +65,7 @@ class PacketTooBig(_ScmpMessage):
 
     fields_desc = [
         ShortField("reserved", default=0),
-        ShortField("MTU", default=1280)
+        ShortField("mtu", default=1280)
     ]
 
 
@@ -99,7 +100,7 @@ class ParameterProblem(_ScmpMessage):
 
     fields_desc = [
         ShortField("reserved", default=0),
-        ShortField("Pointer", default=0)
+        ShortField("pointer", default=0)
     ]
 
 
@@ -109,9 +110,9 @@ class ExternalInterfaceDown(_ScmpMessage):
     name = "External Interface Down"
 
     fields_desc = [
-        ShortField("ISD", default=0),
-        AsnField("AS", default="0"),
-        LongField("Interface", default=0)
+        ShortField("isd", default=0),
+        AsnField("asn", default="0"),
+        LongField("interface", default=0)
     ]
 
 
@@ -121,10 +122,10 @@ class InternalConnectivityDown(_ScmpMessage):
     name = "Internal Connectivity Down"
 
     fields_desc = [
-        ShortField("ISD", default=0),
-        AsnField("AS", default="0"),
-        LongField("IngressInterface", default=0),
-        LongField("EgressInterface", default=0)
+        ShortField("isd", default=0),
+        AsnField("asn", default="0"),
+        LongField("ingress", default=0),
+        LongField("egress", default=0)
     ]
 
 
@@ -134,8 +135,8 @@ class EchoRequest(_ScmpMessage):
     name = "Echo Request"
 
     fields_desc = [
-        ShortField("Identifier", default=0),
-        ShortField("Sequence", default=0)
+        ShortField("id", default=0),
+        ShortField("seq", default=0)
     ]
 
 
@@ -145,8 +146,8 @@ class EchoReply(_ScmpMessage):
     name = "Echo Reply"
 
     fields_desc = [
-        ShortField("Identifier", default=0),
-        ShortField("Sequence", default=0)
+        ShortField("id", default=0),
+        ShortField("seq", default=0)
     ]
 
 
@@ -156,11 +157,11 @@ class TracerouteRequest(_ScmpMessage):
     name = "Traceroute Request"
 
     fields_desc = [
-        ShortField("Identifier", default=0),
-        ShortField("Sequence", default=0),
-        ShortField("ISD", default=0),
-        AsnField("AS", default="0"),
-        LongField("IngressInterface", default=0),
+        ShortField("id", default=0),
+        ShortField("seq", default=0),
+        ShortField("isd", default=0),
+        AsnField("asn", default="0"),
+        LongField("ingress", default=0),
     ]
 
 
@@ -170,11 +171,11 @@ class TracerouteReply(_ScmpMessage):
     name = "Traceroute Reply"
 
     fields_desc = [
-        ShortField("Identifier", default=0),
-        ShortField("Sequence", default=0),
-        ShortField("ISD", default=0),
-        AsnField("AS", default="0"),
-        LongField("IngressInterface", default=0),
+        ShortField("id", default=0),
+        ShortField("seq", default=0),
+        ShortField("ias", default=0),
+        AsnField("asn", default="0"),
+        LongField("ingress", default=0),
     ]
 
 
@@ -201,44 +202,44 @@ class SCMP(Packet):
     TypeExperimentalInfo = 201
 
     fields_desc = [
-        ByteEnumField("Type", default="Echo Request", enum=SCMPTypes),
-        ByteField("Code", default=0),
+        ByteEnumField("type", default="Echo Request", enum=_scmp_types),
+        ByteField("code", default=0),
         XShortField("chksum", default=None), # Checksum is computed in SCION layer
         MultipleTypeField([
-            (PacketField("Message", default=Unreachable(), pkt_cls=Unreachable),
-                lambda pkt: pkt.Type == SCMP.TypeDestinationUnreachable),
-            (PacketField("Message", default=PacketTooBig(), pkt_cls=PacketTooBig),
-                lambda pkt: pkt.Type == SCMP.TypePacketTooBig),
-            (PacketField("Message", default=ParameterProblem(), pkt_cls=ParameterProblem),
-                lambda pkt: pkt.Type == SCMP.TypeParameterProblem),
-            (PacketField("Message", default=ExternalInterfaceDown(), pkt_cls=ExternalInterfaceDown),
-                lambda pkt: pkt.Type == SCMP.TypeExternalInterfaceDown),
-            (PacketField("Message", default=InternalConnectivityDown(), pkt_cls=InternalConnectivityDown),
-                lambda pkt: pkt.Type == SCMP.TypeInternalConnectivityDown),
-            (PacketField("Message", default=EchoRequest(), pkt_cls=EchoRequest),
-                lambda pkt: pkt.Type == SCMP.TypeEchoRequest),
-            (PacketField("Message", default=EchoReply(), pkt_cls=EchoReply),
-                lambda pkt: pkt.Type == SCMP.TypeEchoReply),
-            (PacketField("Message", default=TracerouteRequest(), pkt_cls=TracerouteRequest),
-                lambda pkt: pkt.Type == SCMP.TypeTracerouteRequest),
-            (PacketField("Message", default=TracerouteReply(), pkt_cls=TracerouteReply),
-                lambda pkt: pkt.Type == SCMP.TracerouteReply)],
-            XStrField("Message", default=None)
+            (PacketField("message", default=Unreachable(), pkt_cls=Unreachable),
+                lambda pkt: pkt.type == SCMP.TypeDestinationUnreachable),
+            (PacketField("message", default=PacketTooBig(), pkt_cls=PacketTooBig),
+                lambda pkt: pkt.type == SCMP.TypePacketTooBig),
+            (PacketField("message", default=ParameterProblem(), pkt_cls=ParameterProblem),
+                lambda pkt: pkt.type == SCMP.TypeParameterProblem),
+            (PacketField("message", default=ExternalInterfaceDown(), pkt_cls=ExternalInterfaceDown),
+                lambda pkt: pkt.type == SCMP.TypeExternalInterfaceDown),
+            (PacketField("message", default=InternalConnectivityDown(), pkt_cls=InternalConnectivityDown),
+                lambda pkt: pkt.type == SCMP.TypeInternalConnectivityDown),
+            (PacketField("message", default=EchoRequest(), pkt_cls=EchoRequest),
+                lambda pkt: pkt.type == SCMP.TypeEchoRequest),
+            (PacketField("message", default=EchoReply(), pkt_cls=EchoReply),
+                lambda pkt: pkt.type == SCMP.TypeEchoReply),
+            (PacketField("message", default=TracerouteRequest(), pkt_cls=TracerouteRequest),
+                lambda pkt: pkt.type == SCMP.TypeTracerouteRequest),
+            (PacketField("message", default=TracerouteReply(), pkt_cls=TracerouteReply),
+                lambda pkt: pkt.type == SCMP.TracerouteReply)],
+            XStrField("message", default=None)
         )
     ]
 
     def answers(self, other):
         if isinstance(other, SCMP):
             if self.Code == SCMP.TypeEchoRequest and SCMP.TypeEchoReply:
-                return (other.EchoRequest.Identifier == self.EchoRequest.identifier
-                    and other.EchoRequest.Sequence == self.EchoRequest.Sequence)
+                return (other.EchoRequest.id == self.EchoRequest.id
+                    and other.EchoRequest.seq == self.EchoRequest.seq)
             elif other.Code == SCMP.TypeTracerouteRequest and self.Code == SCMP.TypeTracerouteReply:
-                return (other.EchoRequest.Identifier == self.EchoRequest.identifier
-                    and other.EchoRequest.Sequence == self.EchoRequest.Sequence)
+                return (other.EchoRequest.id == self.EchoRequest.id
+                    and other.EchoRequest.seq == self.EchoRequest.seq)
         return False
 
     def guess_payload_class(self, payload):
-        if self.Type in [SCMP.TypeDestinationUnreachable,
+        if self.type in [SCMP.TypeDestinationUnreachable,
                          SCMP.TypePacketTooBig,
                          SCMP.TypeParameterProblem,
                          SCMP.TypeExternalInterfaceDown,
@@ -252,6 +253,6 @@ class SCIONerror(SCION):
     name = "SCION in SCMP"
 
 
-bind_layers(SCION, SCMP, NextHdr=ProtocolNumbers['SCMP'])
-bind_layers(HopByHopExt, SCMP, NextHdr=ProtocolNumbers['SCMP'])
-bind_layers(EndToEndExt, SCMP, NextHdr=ProtocolNumbers['SCMP'])
+bind_layers(SCION, SCMP, nh=ProtocolNumbers['SCMP'])
+bind_layers(HopByHopExt, SCMP, nh=ProtocolNumbers['SCMP'])
+bind_layers(EndToEndExt, SCMP, nh=ProtocolNumbers['SCMP'])

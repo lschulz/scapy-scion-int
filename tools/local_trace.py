@@ -13,12 +13,12 @@ from typing import Any, Dict, Mapping
 
 import scapy.main
 from scapy.fields import IntField
-from scapy.layers.inet import IP, UDP
+from scapy.layers.inet import IP
 from scapy.packet import Packet, bind_layers
 from scapy.sendrecv import AsyncSniffer
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
-from scapy_scion.layers.scion import SCION
+from scapy_scion.layers.scion import SCION, UDP
 from scapy_scion.utils import capture_path, compare_layers
 
 TEST_PORT = 6500
@@ -33,9 +33,11 @@ bind_layers(UDP, PROBEHDR, dport=TEST_PORT)
 
 
 def get_br_addresses(gen: Path) -> Dict[str, Any]:
-    """Extract the BR sections from the 'topology.json' files of every as in the "gen folder" and
-    merge them in a single directory.
-    :param gen: path to the "gen folder"
+    """Extract the BR sections from the 'topology.json' files of every as in the
+    "gen folder" and merge them in a single directory.
+
+    ### Parameters
+    gen: path to the "gen folder"
     """
     brs = {}
     with os.scandir(gen) as iter:
@@ -49,30 +51,34 @@ def get_br_addresses(gen: Path) -> Dict[str, Any]:
 
 def get_sciond_addresses(gen: Path) -> Dict[str, Any]:
     """Parse the 'scion_addresses.json' file from the "gen folder".
-    :param gen: path to the "gen folder"
+
+    ### Parameters
+    gen: path to the "gen folder"
     """
     with open(gen / "sciond_addresses.json") as f:
         return json.load(f)
 
 
 def bind_scion_layer(brs: Mapping[str, Any]):
-    """Tell Scapy to interpret all UDP packets from an to the border router interfaces as containing
-    SCION packets.
-    :param brs: BR information parsed by get_br_addresses()
+    """Tell Scapy to interpret all UDP packets from an to the border router
+    interfaces as containing SCION packets.
+
+    ### Parameters
+    brs: BR information parsed by get_br_addresses()
     """
     for br in brs.values():
         _, port = br["internal_addr"].split(":")
         bind_layers(UDP, SCION, sport=int(port))
         bind_layers(UDP, SCION, dport=int(port))
         for iface in br["interfaces"].values():
-            _, port = iface["underlay"]["public"].split(":")
+            _, port = iface["underlay"]["local"].split(":")
             bind_layers(UDP, SCION, sport=int(port))
             bind_layers(UDP, SCION, dport=int(port))
 
 
 class PathSniffer():
-    """Wrapper for Scapy's AsyncSniffer. Captures out probe packets as the leave/enter BRs and
-    prints the differences from hop to hop.
+    """Wrapper for Scapy's AsyncSniffer. Captures out probe packets as the
+    leave/enter BRs and prints the differences from hop to hop.
     """
     def __init__(self, brs, num_addr=False, **kwargs):
         self.sniffer = AsyncSniffer(iface="lo", store=False,
@@ -89,7 +95,7 @@ class PathSniffer():
                 ip, port= br["internal_addr"].split(":")
                 self.addr_table[(ip, int(port))] = f"{br_name}#i"
                 for iface_name, iface in br["interfaces"].items():
-                    ip, port = iface["underlay"]["public"].split(":")
+                    ip, port = iface["underlay"]["local"].split(":")
                     self.addr_table[(ip, int(port))] = f"{br_name}#{iface_name}"
 
     @staticmethod
@@ -114,7 +120,7 @@ class PathSniffer():
             print(f"Hop {ip.src:>11}:{udp.sport} > {ip.dst:>11}:{udp.dport} |", end="")
         else:
             src = self.addr_table.get((ip.src, udp.sport), "Source")
-            dst = self.addr_table.get((ip.dst, udp.dport), "Dispatcher")
+            dst = self.addr_table.get((ip.dst, udp.dport), "Destination")
             print(f"Hop {src:<16} > {dst:<16} |", end="")
 
         if last_packet and last_packet[PROBEHDR].seq == seq:
@@ -133,9 +139,11 @@ class PathSniffer():
 
 def send_probes(br: str, path: SCION, count: int):
     """Send probe packets to a border router.
-    :param br: Internal interface of the border router the probe will initially be sent to.
-    :param path: SCION header with a valid path.
-    :param count: Number of probes to send.
+
+    ### Parameters
+    br: Internal interface of the border router the probe will initially be sent to.
+    path: SCION header with a valid path.
+    count: Number of probes to send.
     """
     ip, port = br.split(":")
     port = int(port)
