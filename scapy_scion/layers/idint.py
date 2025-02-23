@@ -22,72 +22,68 @@ from scapy_scion.layers import scion
 IdIntMainOptType = 2
 IdIntEntryOptType = 3
 
-InstFlags = {
-    2**(3 - 0): "NODE_ID",
-    2**(3 - 1): "NODE_CNT",
-    2**(3 - 2): "IN_IF",
-    2**(3 - 3): "EG_IF"
+_inst_bitmap = {
+    2**(3 - 0): "node_id",
+    2**(3 - 1): "node_cnt",
+    2**(3 - 2): "igif",
+    2**(3 - 3): "egif"
 }
 
-Instruction = {
-    0x00: "ZERO_2",
-    0x01: "ISD",
-    0x02: "BR_LINK_TYPE",
-    0x03: "DEVICE_TYPE_ROLE",
-    0x04: "CPU_MEM_USAGE",
-    0x05: "CPU_TEMP",
-    0x06: "ASIC_TEMP",
-    0x07: "FAN_SPEED",
-    0x08: "TOTAL_POWER",
-    0x09: "ENERGY_MIX",
-    0x40: "ZERO_4",
-    0x41: "DEVICE_VENDOR",
-    0x42: "DEVICE_MODEL",
-    0x43: "SOFTWARE_VERSION",
-    0x44: "NODE_IPV4_ADDR",
-    0x45: "INGRESS_IF_SPEED",
-    0x46: "EGRESS_IF_SPEED",
-    0x47: "GPS_LAT",
-    0x48: "GPS_LONG",
-    0x49: "UPTIME",
-    0x4A: "FWD_ENERGY",
-    0x4B: "CO2_EMISSION",
-    0x4C: "INGRESS_LINK_RX",
-    0x4D: "EGRESS_LINK_TX",
-    0x4E: "QUEUE_ID",
-    0x4F: "INST_QUEUE_LEN",
-    0x50: "AVG_QUEUE_LEN",
-    0x51: "BUFFER_ID",
-    0x52: "INST_BUFFER_OCC",
-    0x53: "AVG_BUFFER_OCC",
-    0x80: "ZERO_6",
-    0x81: "ASN",
-    0x82: "INGRESS_TSTAMP",
-    0x83: "EGRESS_TSTAMP",
-    0x84: "IG_SCIF_PKT_CNT",
-    0x85: "EG_SCIF_PKT_CNT",
-    0x86: "IG_SCIF_PKT_DROP",
-    0x87: "EG_SCIF_PKT_DROP",
-    0x88: "IG_SCIF_BYTES",
-    0x89: "EG_SCIF_BYTES",
-    0x8A: "IG_PKT_CNT",
-    0x8B: "EG_PKT_CNT",
-    0x8C: "IG_PKT_DROP",
-    0x8D: "EG_PKT_DROP",
-    0x8E: "IG_BYTES",
-    0x8F: "EG_BYTES",
-    0xC0: "ZERO_8",
-    0xC1: "NODE_IPV6_ADDR_H",
-    0xC2: "NODE_IPV6_ADDR_L",
-    0xFF: "NOP",
+_instructions = {
+    0x00: "nop",
+    0x01: "isd",
+    0x02: "br_link_type",
+    0x03: "device_type_role",
+    0x04: "cpu_mem_usage",
+    0x05: "cpu_temp",
+    0x06: "asic_temp",
+    0x07: "fan_speed",
+    0x08: "total_power",
+    0x09: "energy_mix",
+    0x41: "device_vendor",
+    0x42: "device_model",
+    0x43: "software_version",
+    0x44: "node_ipv4_addr",
+    0x45: "ingress_if_speed",
+    0x46: "egress_if_speed",
+    0x47: "gps_lat",
+    0x48: "gps_long",
+    0x49: "uptime",
+    0x4A: "fwd_energy",
+    0x4B: "co2_emission",
+    0x4C: "ingress_link_rx",
+    0x4D: "egress_link_tx",
+    0x4E: "queue_id",
+    0x4F: "inst_queue_len",
+    0x50: "avg_queue_len",
+    0x51: "buffer_id",
+    0x52: "inst_buffer_occ",
+    0x53: "avg_buffer_occ",
+    0x81: "asn",
+    0x82: "ingress_tstamp",
+    0x83: "egress_tstamp",
+    0x84: "ig_scif_pkt_cnt",
+    0x85: "eg_scif_pkt_cnt",
+    0x86: "ig_scif_pkt_drop",
+    0x87: "eg_scif_pkt_drop",
+    0x88: "ig_scif_bytes",
+    0x89: "eg_scif_bytes",
+    0x8A: "ig_pkt_cnt",
+    0x8B: "eg_pkt_cnt",
+    0x8C: "ig_pkt_drop",
+    0x8D: "eg_pkt_drop",
+    0x8E: "ig_bytes",
+    0x8F: "eg_bytes",
+    0xC1: "node_ipv6_addr_h",
+    0xC2: "node_ipv6_addr_l",
 }
 
-AggrFunctions = {
-    0: "First",
-    1: "Last",
-    2: "Minimum",
-    3: "Maximum",
-    4: "Sum"
+_aggregation_functions = {
+    0: "first",
+    1: "last",
+    2: "minimum",
+    3: "maximum",
+    4: "sum"
 }
 
 
@@ -204,17 +200,17 @@ class IdIntEntry(Packet):
         BitField("reserved1", default=0, size=3),
         BitField("hop", default=0, size=6),
         BitField("reserved2", default=0, size=2),
-        FlagsField("mask", default=0, size=4, names=InstFlags),
+        FlagsField("mask", default=0, size=4, names=_inst_bitmap),
         MetadataLenField("ml1", length_of="md1"),
         MetadataLenField("ml2", length_of="md2"),
         MetadataLenField("ml3", length_of="md3"),
         MetadataLenField("ml4", length_of="md4"),
         ConditionalField(XStrFixedLenField("nonce", default=12*b"\x00", length=12),
             lambda pkt: pkt.flags.encrypted),
-        ConditionalField(IntField("node_id", default=0), lambda pkt: pkt.mask.NODE_ID),
-        ConditionalField(ShortField("node_cnt", default=0), lambda pkt: pkt.mask.NODE_CNT),
-        ConditionalField(ShortField("inif", default=0), lambda pkt: pkt.mask.IN_IF),
-        ConditionalField(ShortField("egif", default=0), lambda pkt: pkt.mask.EG_IF),
+        ConditionalField(IntField("node_id", default=0), lambda pkt: pkt.mask.node_id),
+        ConditionalField(ShortField("node_cnt", default=0), lambda pkt: pkt.mask.node_cnt),
+        ConditionalField(ShortField("igif", default=0), lambda pkt: pkt.mask.igif),
+        ConditionalField(ShortField("egif", default=0), lambda pkt: pkt.mask.egif),
         StrLenField("md1", default=b"", length_from=lambda pkt: pkt.ml1),
         StrLenField("md2", default=b"", length_from=lambda pkt: pkt.ml2),
         StrLenField("md3", default=b"", length_from=lambda pkt: pkt.ml3),
@@ -226,10 +222,10 @@ class IdIntEntry(Packet):
     def _get_md_len(self) -> int:
         """Returns the length of the metadata fields in bytes."""
         length = 0
-        length += 4 if self.mask.NODE_ID else 0
-        length += 2 if self.mask.NODE_CNT else 0
-        length += 2 if self.mask.IN_IF else 0
-        length += 2 if self.mask.EG_IF else 0
+        length += 4 if self.mask.node_id else 0
+        length += 2 if self.mask.node_cnt else 0
+        length += 2 if self.mask.igif else 0
+        length += 2 if self.mask.egif else 0
         length += len(self.md1) + len(self.md2) + len(self.md3) + len(self.md4)
         return length
 
@@ -310,15 +306,15 @@ class IdIntOption(Packet):
         ByteField("tos", default=None),
         BitField("delay_hops", default=0, size=6),
         BitField("reserved", default=0, size=10),
-        FlagsField("inst_flags", default=0, size=4, names=InstFlags),
-        BitEnumField("af1", default=0, size=3, enum=AggrFunctions),
-        BitEnumField("af2", default=0, size=3, enum=AggrFunctions),
-        BitEnumField("af3", default=0, size=3, enum=AggrFunctions),
-        BitEnumField("af4", default=0, size=3, enum=AggrFunctions),
-        ByteEnumField("inst1", default=0xff, enum=Instruction),
-        ByteEnumField("inst2", default=0xff, enum=Instruction),
-        ByteEnumField("inst3", default=0xff, enum=Instruction),
-        ByteEnumField("inst4", default=0xff, enum=Instruction),
+        FlagsField("inst_flags", default=0, size=4, names=_inst_bitmap),
+        BitEnumField("af1", default=0, size=3, enum=_aggregation_functions),
+        BitEnumField("af2", default=0, size=3, enum=_aggregation_functions),
+        BitEnumField("af3", default=0, size=3, enum=_aggregation_functions),
+        BitEnumField("af4", default=0, size=3, enum=_aggregation_functions),
+        ByteEnumField("inst1", default=0xff, enum=_instructions),
+        ByteEnumField("inst2", default=0xff, enum=_instructions),
+        ByteEnumField("inst3", default=0xff, enum=_instructions),
+        ByteEnumField("inst4", default=0xff, enum=_instructions),
         IntegerField("source_ts", default=time.time_ns() % (2**48), sz=6),
         ShortField("source_port", default=0),
         ConditionalField(ShortField("verif_isd", default=1), lambda pkt: pkt.verifier == 0),

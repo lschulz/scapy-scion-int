@@ -19,14 +19,14 @@ class TestIDINT(unittest.TestCase):
                 verifier="third_party",
                 vt="IP",
                 vl=4,
-                inst_flags="NODE_ID",
-                inst1="INGRESS_TSTAMP",
-                inst2="EGRESS_TSTAMP",
+                inst_flags="node_id",
+                inst1="ingress_tstamp",
+                inst2="egress_tstamp",
                 verif_isd=1000,
                 verif_asn="ff00:0:100",
                 stack_len = 32,
                 stack = [
-                    IdIntEntry(flags="source+egress", hop=0, mask="NODE_ID",
+                    IdIntEntry(flags="source+egress", hop=0, mask="node_id",
                         node_id=1, md1=(1).to_bytes(4, 'big'), md2=(2).to_bytes(4, 'big')),
                 ]
             )
@@ -57,18 +57,18 @@ class TestIDINT(unittest.TestCase):
                 verifier="third_party",
                 vt="IP",
                 vl=4,
-                inst_flags="NODE_ID",
-                inst1="INGRESS_TSTAMP",
-                inst2="DEVICE_TYPE_ROLE",
+                inst_flags="node_id",
+                inst1="ingress_tstamp",
+                inst2="device_type_role",
                 source_port=10,
                 verif_isd=1000,
                 verif_asn="ff00:0:100",
                 stack = [
-                    IdIntEntry(flags="source+egress", hop=0, mask="NODE_ID",
+                    IdIntEntry(flags="source+egress", hop=0, mask="node_id",
                         node_id=1, md1=(1).to_bytes(4, 'big'), md2=(2).to_bytes(2, 'big')),
-                    IdIntEntry(flags="ingress+egress", hop=1, mask="NODE_ID",
+                    IdIntEntry(flags="ingress+egress", hop=1, mask="node_id",
                         node_id=2, md1=(3).to_bytes(4, 'big'), md2=(4).to_bytes(2, 'big')),
-                    IdIntEntry(flags="ingress", hop=2, mask="NODE_ID",
+                    IdIntEntry(flags="ingress", hop=2, mask="node_id",
                         node_id=3, md1=(5).to_bytes(4, 'big')),
                     PadNOption(OptData=b"\x00\x00")
                 ]
