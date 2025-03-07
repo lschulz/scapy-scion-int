@@ -430,7 +430,7 @@ class SCION(Packet):
         # Compute L4 checksum
         for proto in ['SCMP', 'TCP', 'UDP']:
             l4 = self.getlayer(proto)
-            if l4 is not None:
+            if l4 is not None and l4.chksum is None:
                 addr_hdr = hdr[12:12+16+(4*self.dl+4)+(4*self.sl+4)]
                 l4.chksum = scion_checksum(addr_hdr, bytes(l4), ProtocolNumbers[proto])
                 payload = bytes(self.payload) # Update the payload

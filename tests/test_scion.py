@@ -127,7 +127,7 @@ class TestSCION(unittest.TestCase):
 
         # Force recomputation of the checksum
         del original[SCION].hlen
-        del original[UDP].chksum
+        del original.getlayer(UDP, 2).chksum
 
         p = Ether(bytes(original))
         self.assertEqual(p.getlayer(UDP, 2).chksum, 0xffe3)
