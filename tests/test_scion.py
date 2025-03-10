@@ -1,4 +1,5 @@
 import unittest
+from ipaddress import ip_address
 
 from scapy.layers.inet import IP, TCP
 from scapy.layers.l2 import Ether
@@ -7,7 +8,8 @@ from scapy.packet import Raw
 from scapy_scion.layers.bfd import BFD
 from scapy_scion.layers.scion import (
     SCION, UDP, AuthenticatorOption, EndToEndExt, HopByHopExt, HopField,
-    InfoField, PadNOption, ProtocolNumbers, SCIONPath)
+    InfoField, PadNOption, SCION_PROTO_NUMBERS, SCIONPath
+)
 from scapy_scion.layers.scmp import SCMP, SCIONerror
 
 
@@ -25,8 +27,8 @@ class TestSCION(unittest.TestCase):
         self.assertEqual(scion.hlen, 68 // 4)
         self.assertEqual(scion.dst_asn, "ff00:0:110")
         self.assertEqual(scion.src_asn, "ff00:0:111")
-        self.assertEqual(scion.dst_host, "127.0.0.4")
-        self.assertEqual(scion.src_host, "127.0.0.5")
+        self.assertEqual(scion.dst_host, ip_address("127.0.0.4"))
+        self.assertEqual(scion.src_host, ip_address("127.0.0.5"))
         self.assertEqual(scion.path.getlayer(InfoField).segid, 0x0)
         self.assertEqual(scion.path.getlayer(HopField, 1).mac, 0xbb28accef0ac)
         self.assertEqual(scion.path.getlayer(HopField, 2).mac, 0x0)
@@ -42,8 +44,8 @@ class TestSCION(unittest.TestCase):
         self.assertEqual(scion.hlen, 72 // 4)
         self.assertEqual(scion.dst_asn, "ff00:0:111")
         self.assertEqual(scion.src_asn, "ff00:0:110")
-        self.assertEqual(scion.dst_host, "127.0.0.1")
-        self.assertEqual(scion.src_host, "127.0.0.1")
+        self.assertEqual(scion.dst_host, ip_address("127.0.0.1"))
+        self.assertEqual(scion.src_host, ip_address("127.0.0.1"))
         self.assertEqual(scion.path.getlayer(InfoField).segid, 0x4beb)
         self.assertEqual(scion.path.getlayer(HopField, 1).mac, 0x1c4fa3fcf686)
         self.assertEqual(scion.path.getlayer(HopField, 2).mac, 0xd8eeeaa0bf18)
@@ -70,7 +72,7 @@ class TestSCION(unittest.TestCase):
         self.assertEqual(scion.dst_asn, "ff00:0:111")
         self.assertEqual(scion.src_asn, "ff00:0:110")
         self.assertEqual(scion.dst_host, b"\x00\x02\x00\x00")
-        self.assertEqual(scion.src_host, "127.0.0.11")
+        self.assertEqual(scion.src_host, ip_address("127.0.0.11"))
         self.assertEqual(scion.path.getlayer(InfoField).segid, 0x9daa)
         self.assertEqual(scion.path.getlayer(HopField, 1).mac, 0x49861768d715)
         self.assertEqual(scion.path.getlayer(HopField, 2).mac, 0x0)
@@ -96,7 +98,7 @@ class TestSCION(unittest.TestCase):
         self.assertEqual(ip[UDP].sport, 30042)
         self.assertEqual(ip[UDP].dport, 30042)
         scion = ip[SCION]
-        self.assertEqual(scion.nh, ProtocolNumbers["HopByHopExt"])
+        self.assertEqual(scion.nh, SCION_PROTO_NUMBERS["HopByHopExt"])
         hbh = scion[HopByHopExt]
         self.assertEqual(hbh.ext_len, 0)
         e2e = scion[EndToEndExt]

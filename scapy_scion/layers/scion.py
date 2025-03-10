@@ -15,9 +15,9 @@ from cryptography.hazmat.primitives import cmac, hashes
 from cryptography.hazmat.primitives.ciphers import algorithms
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from scapy.fields import (
-    BitEnumField, BitField, ByteEnumField, ByteField, FieldLenField, FlagsField,
-    IP6Field, IPField, MultipleTypeField, PacketField, PacketListField,
-    ShortField, XBitField, XShortField, XStrField, XStrLenField
+    BitEnumField, BitField, BitFieldLenField, ByteEnumField, ByteField,
+    FieldLenField, FlagsField, MultipleTypeField, PacketField, PacketListField,
+    ShortField, XBitField, XShortField, XStrLenField
 )
 from scapy.layers.inet import IP, TCP
 from scapy.layers.inet import UDP as _inet_udp
@@ -27,12 +27,14 @@ from scapy.packet import (
 )
 from scapy.utils import checksum
 
-from scapy_scion.fields import AsnField, ExpiryTime, UnixTimestamp
+from scapy_scion.fields import (
+    AsnField, ExpiryTimeField, HostAddressField, UnixTimestampField
+)
 
 # Assigned SCION protocol numbers
 # https://docs.scion.org/en/latest/protocols/assigned-protocol-numbers.html
 
-ProtocolNames = {
+SCION_PROTO_NAMES = {
     6: "TCP",
     17: "UDP",
     200: "HopByHopExt",
@@ -43,7 +45,7 @@ ProtocolNames = {
     254: "Experiment2",
 }
 
-ProtocolNumbers = {
+SCION_PROTO_NUMBERS = {
     "TCP": 6,
     "UDP": 17,
     "HopByHopExt": 200,
@@ -67,7 +69,7 @@ def _looks_like_scion(payload: bytes) -> bool:
     try:
         sc = SCION(payload)
         assert sc.version == 0
-        assert sc.nh == 0 or sc.nh in ProtocolNames.keys()
+        assert sc.nh == 0 or sc.nh in SCION_PROTO_NAMES.keys()
         assert sc.ptype in [0, 1, 2, 3, 4]
         assert sc.dt < 2 and sc.st < 2
         assert sc.dl in [0, 3] and sc.sl in [0, 3]
@@ -129,7 +131,7 @@ class InfoField(Packet):
         }),
         BitField("reserved", default=0, size=8),
         XShortField("segid", default=0),
-        UnixTimestamp("timestamp", default=datetime.now(tz=timezone.utc))
+        UnixTimestampField("timestamp", default=datetime.now(tz=timezone.utc))
     ]
 
     def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
@@ -146,7 +148,7 @@ class HopField(Packet):
             0x01: "E",
             0x02: "I"
         }),
-        ExpiryTime("exp_time", default=0),
+        ExpiryTimeField("exp_time", default=0),
         ShortField("cons_ingress", default=0),
         ShortField("cons_egress", default=1),
         XBitField("mac", default=0, size=48)
@@ -358,8 +360,8 @@ class SCION(Packet):
         # Common header
         BitField("version", default=0, size=4),
         XBitField("qos", default=0, size=8),
-        XBitField("fl", default=1, size=20),
-        ByteEnumField("nh", default=None, enum=ProtocolNames),
+        XBitField("fl", default=0, size=20),
+        ByteEnumField("nh", default=None, enum=SCION_PROTO_NAMES),
         ByteField("hlen", default=None),
         ShortField("plen", default=None),
         ByteEnumField("ptype", default=None, enum= {
@@ -370,9 +372,11 @@ class SCION(Packet):
             4: "COLIBRI"
         }),
         BitEnumField("dt", default="IP", size=2, enum=address_types),
-        BitField("dl", default=0, size=2),
+        BitFieldLenField("dl", default=None, size=2, length_of="dst_host",
+            adjust= lambda pkt, x: x // 4 - 1),
         BitEnumField("st", default="IP", size=2, enum=address_types),
-        BitField("sl", default=0, size=2),
+        BitFieldLenField("sl", default=None, size=2, length_of="src_host",
+            adjust= lambda pkt, x: x // 4 - 1),
         ShortField("reserved", default=0),
 
         # Address header
@@ -380,23 +384,15 @@ class SCION(Packet):
         AsnField("dst_asn", default="ff00:0:1"),
         ShortField("src_isd", default=1),
         AsnField("src_asn", default="ff00:0:2"),
-        MultipleTypeField([
-            (IPField("dst_host", default="127.0.0.1"), lambda pkt: pkt.dt == 0 and pkt.dl == 0),
-            (IP6Field("dst_host", default="::1"), lambda pkt: pkt.dt == 0 and pkt.dl == 3)],
-            XStrLenField("dst_host", default=None, length_from=lambda pkt: 4 * pkt.dl + 4)
-        ),
-        MultipleTypeField([
-            (IPField("src_host", default="127.0.0.1"), lambda pkt: pkt.st == 0 and pkt.sl == 0),
-            (IP6Field("src_host", default="::1"), lambda pkt: pkt.st == 0 and pkt.sl == 3)],
-            XStrLenField("src_host", default=None, length_from=lambda pkt: 4 * pkt.sl + 4)
-        ),
+        HostAddressField("dst_host", default="127.0.0.1", type_from="dt", length_from="dl"),
+        HostAddressField("src_host", default="127.0.0.1", type_from="st", length_from="sl"),
 
         # Path
         MultipleTypeField([
             (PacketField("path", None, pkt_cls=EmptyPath), lambda pkt: pkt.ptype == 0),
             (PacketField("path", None, pkt_cls=SCIONPath), lambda pkt: pkt.ptype == 1),
             (PacketField("path", None, pkt_cls=OneHopPath), lambda pkt: pkt.ptype == 2)],
-            XStrField("path", default=None)
+            PacketField("path", None, pkt_cls=EmptyPath)
         ),
     ]
 
@@ -431,8 +427,13 @@ class SCION(Packet):
         for proto in ['SCMP', 'TCP', 'UDP']:
             l4 = self.getlayer(proto)
             if l4 is not None and l4.chksum is None:
-                addr_hdr = hdr[12:12+16+(4*self.dl+4)+(4*self.sl+4)]
-                l4.chksum = scion_checksum(addr_hdr, bytes(l4), ProtocolNumbers[proto])
+                addr_len = (
+                    16
+                    + HostAddressField.i2len(None, self.dst_host)
+                    + HostAddressField.i2len(None, self.src_host)
+                )
+                addr_hdr = hdr[12:12+addr_len]
+                l4.chksum = scion_checksum(addr_hdr, bytes(l4), SCION_PROTO_NUMBERS[proto])
                 payload = bytes(self.payload) # Update the payload
                 break
 
@@ -514,7 +515,7 @@ class HopByHopExt(Packet):
     name = "SCION Hop-by-Hop Options"
 
     fields_desc = [
-        ByteEnumField("nh", default=None, enum=ProtocolNames),
+        ByteEnumField("nh", default=None, enum=SCION_PROTO_NAMES),
         FieldLenField("ext_len", default=None, fmt="B", length_of="options",
             adjust=lambda pkt, x: (x - 2) // 4),
         PacketListField("options", default=[], length_from=lambda pkt: 4 * pkt.ext_len + 2,
@@ -542,7 +543,7 @@ class EndToEndExt(Packet):
     name = "SCION End-to-End Options"
 
     fields_desc = [
-        ByteEnumField("nh", default=None, enum=ProtocolNames),
+        ByteEnumField("nh", default=None, enum=SCION_PROTO_NAMES),
         FieldLenField("ext_len", default=None, fmt="B", length_of="options",
             adjust=lambda pkt, x: (x - 2) // 4),
         PacketListField("options", default=[], length_from=lambda pkt: 4 * pkt.ext_len + 2,
@@ -577,14 +578,14 @@ bind_bottom_up(UDP, SCION, sport=30041)
 bind_top_down(UDP, SCION, {'dport': 30042, 'sport': 30042})
 
 # Bind upper-layer protocols
-bind_layers(SCION, TCP, nh=ProtocolNumbers['TCP'])
-bind_layers(SCION, UDP, nh=ProtocolNumbers['UDP'])
-bind_layers(SCION, HopByHopExt, nh=ProtocolNumbers['HopByHopExt'])
-bind_layers(SCION, EndToEndExt, nh=ProtocolNumbers['EndToEndExt'])
+bind_layers(SCION, TCP, nh=SCION_PROTO_NUMBERS['TCP'])
+bind_layers(SCION, UDP, nh=SCION_PROTO_NUMBERS['UDP'])
+bind_layers(SCION, HopByHopExt, nh=SCION_PROTO_NUMBERS['HopByHopExt'])
+bind_layers(SCION, EndToEndExt, nh=SCION_PROTO_NUMBERS['EndToEndExt'])
 
-bind_layers(HopByHopExt, TCP, nh=ProtocolNumbers['TCP'])
-bind_layers(HopByHopExt, UDP, nh=ProtocolNumbers['UDP'])
-bind_layers(HopByHopExt, EndToEndExt, nh=ProtocolNumbers['EndToEndExt'])
+bind_layers(HopByHopExt, TCP, nh=SCION_PROTO_NUMBERS['TCP'])
+bind_layers(HopByHopExt, UDP, nh=SCION_PROTO_NUMBERS['UDP'])
+bind_layers(HopByHopExt, EndToEndExt, nh=SCION_PROTO_NUMBERS['EndToEndExt'])
 
-bind_layers(EndToEndExt, TCP, nh=ProtocolNumbers['TCP'])
-bind_layers(EndToEndExt, UDP, nh=ProtocolNumbers['UDP'])
+bind_layers(EndToEndExt, TCP, nh=SCION_PROTO_NUMBERS['TCP'])
+bind_layers(EndToEndExt, UDP, nh=SCION_PROTO_NUMBERS['UDP'])

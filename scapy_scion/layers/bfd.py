@@ -9,7 +9,7 @@ from scapy.fields import (
 )
 from scapy.packet import Packet, bind_layers
 
-from .scion import SCION, EndToEndExt, HopByHopExt, ProtocolNumbers
+from .scion import SCION, EndToEndExt, HopByHopExt, SCION_PROTO_NUMBERS
 
 
 class BFD(Packet):
@@ -50,6 +50,6 @@ class BFD(Packet):
     ]
 
 
-bind_layers(SCION, BFD, nh=ProtocolNumbers['BFD'])
-bind_layers(HopByHopExt, BFD, nh=ProtocolNumbers['BFD'])
-bind_layers(EndToEndExt, BFD, nh=ProtocolNumbers['BFD'])
+bind_layers(SCION, BFD, nh=SCION_PROTO_NUMBERS['BFD'])
+bind_layers(HopByHopExt, BFD, nh=SCION_PROTO_NUMBERS['BFD'])
+bind_layers(EndToEndExt, BFD, nh=SCION_PROTO_NUMBERS['BFD'])

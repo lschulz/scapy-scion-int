@@ -6,31 +6,13 @@ https://docs.scion.org/en/latest/protocols/scmp.html
 from typing import Optional, Tuple
 
 from scapy.fields import (
-    ByteEnumField, ByteField, IntField, LongField, MultipleTypeField,
-    PacketField, ShortField, XShortField, XStrField
+    ByteField, IntField, LongField, MultipleTypeField,PacketField, ShortField,
+    XShortField
 )
 from scapy.packet import Packet, bind_layers
 
 from ..fields import AsnField
-from .scion import SCION, EndToEndExt, HopByHopExt, ProtocolNumbers
-
-_scmp_types = {
-    # Error Messages
-    1: "Destination Unreachable",
-    2: "Packet Too Big",
-    4: "Parameter Problem",
-    5: "External Interface Down",
-    6: "Internal Connectivity Down",
-    100: "Experimental Error 1",
-    101: "Experimental Error 2",
-    # Informational Messages
-    128: "Echo Request",
-    129: "Echo Reply",
-    130: "Traceroute Request",
-    131: "Traceroute Reply",
-    200: "Experimental Info 1",
-    201: "Experimental Info 2",
-}
+from .scion import SCION, EndToEndExt, HopByHopExt, SCION_PROTO_NUMBERS
 
 
 class _ScmpMessage(Packet):
@@ -38,10 +20,14 @@ class _ScmpMessage(Packet):
         return b"", s
 
 
-class Unreachable(_ScmpMessage):
+class ScmpUnreachable(_ScmpMessage):
     """SCMP Destination Unreachable"""
 
     name = "Destination Unreachable"
+
+    @property
+    def type(self):
+        return 1
 
     codes = {
         0: "no route to destination",
@@ -58,10 +44,14 @@ class Unreachable(_ScmpMessage):
     ]
 
 
-class PacketTooBig(_ScmpMessage):
+class ScmpPacketTooBig(_ScmpMessage):
     """SCMP Packet Too Big"""
 
     name = "Packet Too Big"
+
+    @property
+    def type(self):
+        return 2
 
     fields_desc = [
         ShortField("reserved", default=0),
@@ -69,10 +59,14 @@ class PacketTooBig(_ScmpMessage):
     ]
 
 
-class ParameterProblem(_ScmpMessage):
+class ScmpParameterProblem(_ScmpMessage):
     """SCMP Parameter Problem"""
 
     name = "Parameter Problem"
+
+    @property
+    def type(self):
+        return 4
 
     codes = {
         0: "erroneous header field",
@@ -104,10 +98,14 @@ class ParameterProblem(_ScmpMessage):
     ]
 
 
-class ExternalInterfaceDown(_ScmpMessage):
+class ScmpExternalInterfaceDown(_ScmpMessage):
     """SCMP External Interface Down"""
 
     name = "External Interface Down"
+
+    @property
+    def type(self):
+        return 5
 
     fields_desc = [
         ShortField("isd", default=0),
@@ -116,10 +114,14 @@ class ExternalInterfaceDown(_ScmpMessage):
     ]
 
 
-class InternalConnectivityDown(_ScmpMessage):
+class ScmpInternalConnectivityDown(_ScmpMessage):
     """SCMP Internal Connectivity Down"""
 
     name = "Internal Connectivity Down"
+
+    @property
+    def type(self):
+        return 6
 
     fields_desc = [
         ShortField("isd", default=0),
@@ -129,32 +131,44 @@ class InternalConnectivityDown(_ScmpMessage):
     ]
 
 
-class EchoRequest(_ScmpMessage):
+class ScmpEchoRequest(_ScmpMessage):
     """SCMP Echo Request"""
 
     name = "Echo Request"
 
+    @property
+    def type(self):
+        return 128
+
     fields_desc = [
         ShortField("id", default=0),
         ShortField("seq", default=0)
     ]
 
 
-class EchoReply(_ScmpMessage):
+class ScmpEchoReply(_ScmpMessage):
     """SCMP Echo Reply"""
 
     name = "Echo Reply"
 
+    @property
+    def type(self):
+        return 129
+
     fields_desc = [
         ShortField("id", default=0),
         ShortField("seq", default=0)
     ]
 
 
-class TracerouteRequest(_ScmpMessage):
+class ScmpTracerouteRequest(_ScmpMessage):
     """SCMP Traceroute Request"""
 
     name = "Traceroute Request"
+
+    @property
+    def type(self):
+        return 130
 
     fields_desc = [
         ShortField("id", default=0),
@@ -165,10 +179,14 @@ class TracerouteRequest(_ScmpMessage):
     ]
 
 
-class TracerouteReply(_ScmpMessage):
+class ScmpTracerouteReply(_ScmpMessage):
     """SCMP Traceroute Reply"""
 
     name = "Traceroute Reply"
+
+    @property
+    def type(self):
+        return 131
 
     fields_desc = [
         ShortField("id", default=0),
@@ -202,31 +220,36 @@ class SCMP(Packet):
     TypeExperimentalInfo = 201
 
     fields_desc = [
-        ByteEnumField("type", default="Echo Request", enum=_scmp_types),
+        ByteField("type", default=None),
         ByteField("code", default=0),
         XShortField("chksum", default=None), # Checksum is computed in SCION layer
         MultipleTypeField([
-            (PacketField("message", default=Unreachable(), pkt_cls=Unreachable),
+            (PacketField("message", default=ScmpUnreachable(), pkt_cls=ScmpUnreachable),
                 lambda pkt: pkt.type == SCMP.TypeDestinationUnreachable),
-            (PacketField("message", default=PacketTooBig(), pkt_cls=PacketTooBig),
+            (PacketField("message", default=ScmpPacketTooBig(), pkt_cls=ScmpPacketTooBig),
                 lambda pkt: pkt.type == SCMP.TypePacketTooBig),
-            (PacketField("message", default=ParameterProblem(), pkt_cls=ParameterProblem),
+            (PacketField("message", default=ScmpParameterProblem(), pkt_cls=ScmpParameterProblem),
                 lambda pkt: pkt.type == SCMP.TypeParameterProblem),
-            (PacketField("message", default=ExternalInterfaceDown(), pkt_cls=ExternalInterfaceDown),
+            (PacketField("message", default=ScmpExternalInterfaceDown(), pkt_cls=ScmpExternalInterfaceDown),
                 lambda pkt: pkt.type == SCMP.TypeExternalInterfaceDown),
-            (PacketField("message", default=InternalConnectivityDown(), pkt_cls=InternalConnectivityDown),
+            (PacketField("message", default=ScmpInternalConnectivityDown(), pkt_cls=ScmpInternalConnectivityDown),
                 lambda pkt: pkt.type == SCMP.TypeInternalConnectivityDown),
-            (PacketField("message", default=EchoRequest(), pkt_cls=EchoRequest),
+            (PacketField("message", default=ScmpEchoRequest(), pkt_cls=ScmpEchoRequest),
                 lambda pkt: pkt.type == SCMP.TypeEchoRequest),
-            (PacketField("message", default=EchoReply(), pkt_cls=EchoReply),
+            (PacketField("message", default=ScmpEchoReply(), pkt_cls=ScmpEchoReply),
                 lambda pkt: pkt.type == SCMP.TypeEchoReply),
-            (PacketField("message", default=TracerouteRequest(), pkt_cls=TracerouteRequest),
+            (PacketField("message", default=ScmpTracerouteRequest(), pkt_cls=ScmpTracerouteRequest),
                 lambda pkt: pkt.type == SCMP.TypeTracerouteRequest),
-            (PacketField("message", default=TracerouteReply(), pkt_cls=TracerouteReply),
-                lambda pkt: pkt.type == SCMP.TracerouteReply)],
-            XStrField("message", default=None)
+            (PacketField("message", default=ScmpTracerouteReply(), pkt_cls=ScmpTracerouteReply),
+                lambda pkt: pkt.type == SCMP.TypeTracerouteReply)],
+            PacketField("message", default=ScmpEchoRequest(), pkt_cls=ScmpEchoRequest)
         )
     ]
+
+    def post_build(self, hdr: bytes, payload: bytes) -> bytes:
+        if self.type is None:
+            hdr = self.message.type.to_bytes(1, byteorder='big') + hdr[1:]
+        return hdr + payload
 
     def answers(self, other):
         if isinstance(other, SCMP):
@@ -253,6 +276,6 @@ class SCIONerror(SCION):
     name = "SCION in SCMP"
 
 
-bind_layers(SCION, SCMP, nh=ProtocolNumbers['SCMP'])
-bind_layers(HopByHopExt, SCMP, nh=ProtocolNumbers['SCMP'])
-bind_layers(EndToEndExt, SCMP, nh=ProtocolNumbers['SCMP'])
+bind_layers(SCION, SCMP, nh=SCION_PROTO_NUMBERS['SCMP'])
+bind_layers(HopByHopExt, SCMP, nh=SCION_PROTO_NUMBERS['SCMP'])
+bind_layers(EndToEndExt, SCMP, nh=SCION_PROTO_NUMBERS['SCMP'])
