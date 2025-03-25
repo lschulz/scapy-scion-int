@@ -16,8 +16,8 @@ from cryptography.hazmat.primitives.ciphers import algorithms
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from scapy.fields import (
     BitEnumField, BitField, BitFieldLenField, ByteEnumField, ByteField,
-    FieldLenField, FlagsField, MultipleTypeField, PacketField, PacketListField,
-    ShortField, XBitField, XShortField, XStrLenField
+    FieldLenField, FlagsField, IntField, MultipleTypeField, PacketField,
+    PacketListField, ShortField, XBitField, XShortField, XStrLenField
 )
 from scapy.layers.inet import IP, TCP
 from scapy.layers.inet import UDP as _inet_udp
@@ -450,7 +450,7 @@ class Pad1Option(Packet):
     name = "Pad1"
 
     fields_desc = [
-        ByteField("opt_type", default=0)
+        ByteField("type", default=0)
     ]
 
     def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
@@ -463,9 +463,9 @@ class PadNOption(Packet):
     name = "PadN"
 
     fields_desc = [
-        ByteField("opt_type", default=1),
-        FieldLenField("opt_data_len", default=None, fmt="B", length_of="opt_data"),
-        XStrLenField("opt_data", default=b"", length_from=lambda pkt: pkt.opt_data_len)
+        ByteField("type", default=1),
+        FieldLenField("data_len", default=None, fmt="B", length_of="data"),
+        XStrLenField("data", default=b"", length_from=lambda pkt: pkt.data_len)
     ]
 
     def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
@@ -480,16 +480,18 @@ class AuthenticatorOption(Packet):
     name = "Authenticator"
 
     fields_desc = [
-        ByteField("opt_type", default=2),
-        FieldLenField("opt_data_len", default=17, fmt="B", length_of="Authenticator",
-            adjust=lambda pkt, x: x + 1),
+        ByteField("type", default=2),
+        FieldLenField("data_len", default=None, fmt="B", length_of="authenticator",
+            adjust=lambda pkt, x: x + 12),
+        IntField("spi", default=0),
         ByteEnumField("algorithm", default="AES-CMAC", enum={
             0: "AES-CMAC",
-            253: "Exp 1",
-            254: "Exp 2",
+            1: "SHA1-AES-CBC",
         }),
+        ByteField("reserved", default=0),
+        XBitField("timestamp", default=0, size=48),
         XStrLenField("authenticator", default=16*b"\x00",
-            length_from=lambda pkt: pkt.opt_data_len - 1)
+            length_from=lambda pkt: pkt.data_len - 12)
     ]
 
     def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
@@ -509,6 +511,7 @@ def _detect_hbh_option_type(pkt: bytes, **kwargs):
     cls = _hdh_option_types.get(pkt[0], Raw)
     return cls(pkt, **kwargs)
 
+
 class HopByHopExt(Packet):
     """SCION Hop-by-Hop Options Header"""
 
@@ -521,7 +524,6 @@ class HopByHopExt(Packet):
         PacketListField("options", default=[], length_from=lambda pkt: 4 * pkt.ext_len + 2,
             pkt_cls=_detect_hbh_option_type)
     ]
-
 
 _e2e_option_types = {
     0: Pad1Option,
@@ -537,6 +539,7 @@ def _detect_e2e_option_type(pkt: bytes, **kwargs):
     cls = _e2e_option_types.get(pkt[0], Raw)
     return cls(pkt, **kwargs)
 
+
 class EndToEndExt(Packet):
     """SCION End-to-End Options Header"""
 
@@ -549,6 +552,7 @@ class EndToEndExt(Packet):
         PacketListField("options", default=[], length_from=lambda pkt: 4 * pkt.ext_len + 2,
             pkt_cls=_detect_e2e_option_type)
     ]
+
 
 # Replace default UDP layer with our overridden UDP layer
 split_layers(IP, _inet_udp, frag=0, proto=17)

@@ -36,15 +36,15 @@ class TestIDINT(unittest.TestCase):
         opts = p[HopByHopExt].options
         self.assertEqual(len(opts), 1)
         self.assertIsInstance(opts[0], IdIntOption)
-        self.assertEqual(opts[0].opt_data_len, 34)
+        self.assertEqual(opts[0].data_len, 34)
         self.assertEqual(opts[0].stack_len, 32)
         self.assertEqual(opts[0].tos, 0)
 
         stack = opts[0].stack
         self.assertIsInstance(stack[0], IdIntEntry)
-        self.assertEqual(stack[0].opt_data_len, 24)
+        self.assertEqual(stack[0].data_len, 24)
         self.assertIsInstance(stack[1], PadNOption)
-        self.assertEqual(stack[1].opt_data_len, 102)
+        self.assertEqual(stack[1].data_len, 102)
 
     def test_idint_verification(self):
         """Test ID-INT header verification"""
@@ -70,7 +70,7 @@ class TestIDINT(unittest.TestCase):
                         node_id=2, md1=(3).to_bytes(4, 'big'), md2=(4).to_bytes(2, 'big')),
                     IdIntEntry(flags="ingress", hop=2, mask="node_id",
                         node_id=3, md1=(5).to_bytes(4, 'big')),
-                    PadNOption(opt_data=b"\x00\x00")
+                    PadNOption(data=b"\x00\x00")
                 ]
             )
         ])

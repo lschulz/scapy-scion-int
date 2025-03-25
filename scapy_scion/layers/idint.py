@@ -188,8 +188,8 @@ class IdIntEntry(Packet):
     name = "IdIntEntry"
 
     fields_desc = [
-        ByteField("opt_type", default=IdIntEntryOptType),
-        ByteField("opt_data_len", default=None),
+        ByteField("type", default=IdIntEntryOptType),
+        ByteField("data_len", default=None),
         FlagsField("flags", default=0, size=5, names={
             2**(4 - 0): "source",
             2**(4 - 1): "ingress",
@@ -237,7 +237,7 @@ class IdIntEntry(Packet):
         return (hdr_len + 3) & ~0x03
 
     def post_build(self, hdr: bytes, payload: bytes):
-        if self.opt_data_len is None:
+        if self.data_len is None:
             hdr = hdr[:1] + self.length().to_bytes(1, byteorder='big') + hdr[2:]
         return hdr + payload
 
@@ -289,8 +289,8 @@ class IdIntOption(Packet):
     name = "ID-INT"
 
     fields_desc = [
-        ByteField("opt_type", default=IdIntMainOptType),
-        ByteField("opt_data_len", default=None),
+        ByteField("type", default=IdIntMainOptType),
+        ByteField("data_len", default=None),
         BitField("version", default=0, size=3),
         FlagsField("flags", default=0, size=5, names={
             2**(4 - 0): "infrastructure",
@@ -346,7 +346,7 @@ class IdIntOption(Packet):
             n = self.stack_length() // 4
             if n < self.stack_len:
                 m = self.stack_len - n
-                self.stack.append(scion.PadNOption(opt_data=(4 * m - 2) * b"\x00"))
+                self.stack.append(scion.PadNOption(data=(4 * m - 2) * b"\x00"))
 
         if self.tos is None:
             tos = self.stack_entries() - 1
@@ -359,7 +359,7 @@ class IdIntOption(Packet):
         return super().self_build()
 
     def post_build(self, hdr: bytes, payload: bytes):
-        if self.opt_data_len is None:
+        if self.data_len is None:
             hdr_len = 22
             if self.verifier == 0:
                 hdr_len += 8 + self.vl

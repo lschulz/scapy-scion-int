@@ -91,7 +91,7 @@ class TestSCION(unittest.TestCase):
             )
         )
         p = p/HopByHopExt(options=[PadNOption()])
-        p = p/EndToEndExt(options=[PadNOption(opt_data=b"\x00"), AuthenticatorOption()])
+        p = p/EndToEndExt(options=[AuthenticatorOption()])
         p = p/SCMP()
 
         ip = IP(bytes(p))
@@ -102,7 +102,7 @@ class TestSCION(unittest.TestCase):
         hbh = scion[HopByHopExt]
         self.assertEqual(hbh.ext_len, 0)
         e2e = scion[EndToEndExt]
-        self.assertEqual(e2e.ext_len, 5)
+        self.assertEqual(e2e.ext_len, 7)
 
     def test_scmp_checksum(self):
         """Test checksum update with SCMP payload."""
