@@ -75,7 +75,7 @@ class ScmpParameterProblem(_ScmpMessage):
         17: "unknown SCION version",
         18: "FlowID required",
         19: "invalid packet size",
-        20: "unknown oath type",
+        20: "unknown path type",
         21: "unknown address format",
         32: "invalid address header",
         33: "invalid source address",
@@ -110,7 +110,7 @@ class ScmpExternalInterfaceDown(_ScmpMessage):
     fields_desc = [
         ShortField("isd", default=0),
         AsnField("asn", default="0"),
-        LongField("interface", default=0)
+        LongField("iface", default=0)
     ]
 
 
@@ -175,7 +175,7 @@ class ScmpTracerouteRequest(_ScmpMessage):
         ShortField("seq", default=0),
         ShortField("isd", default=0),
         AsnField("asn", default="0"),
-        LongField("ingress", default=0),
+        LongField("iface", default=0),
     ]
 
 
@@ -191,9 +191,9 @@ class ScmpTracerouteReply(_ScmpMessage):
     fields_desc = [
         ShortField("id", default=0),
         ShortField("seq", default=0),
-        ShortField("ias", default=0),
+        ShortField("isd", default=0),
         AsnField("asn", default="0"),
-        LongField("ingress", default=0),
+        LongField("iface", default=0),
     ]
 
 
