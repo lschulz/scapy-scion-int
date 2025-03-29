@@ -18,7 +18,7 @@ class TestIDINT(unittest.TestCase):
             IdIntOption(
                 verifier="third_party",
                 vt="IP",
-                vl=4,
+                vl=0,
                 inst_flags="node_id",
                 inst1="ingress_tstamp",
                 inst2="egress_tstamp",
@@ -56,7 +56,7 @@ class TestIDINT(unittest.TestCase):
                 aggregation="as",
                 verifier="third_party",
                 vt="IP",
-                vl=4,
+                vl=0,
                 inst_flags="node_id",
                 inst1="ingress_tstamp",
                 inst2="device_type_role",

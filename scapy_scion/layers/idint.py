@@ -9,9 +9,9 @@ from typing import Callable, List, Optional, Tuple
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from scapy.fields import (
-    BitEnumField, BitField, BitScalingField, ByteEnumField, ByteField, ConditionalField, Field,
-    FlagsField, IntField, IP6Field, IPField, MultipleTypeField, PacketListField, ShortField,
-    StrLenField, XStrFixedLenField, XStrLenField
+    BitEnumField, BitField, ByteEnumField, ByteField, ConditionalField, Field, FlagsField, IntField,
+    IP6Field, IPField, MultipleTypeField, PacketListField, ShortField, StrLenField,
+    XStrFixedLenField, XStrLenField
 )
 from scapy.packet import Packet
 
@@ -19,8 +19,8 @@ from scapy_scion.fields import AsnField, IntegerField
 from scapy_scion.layers import scion
 
 
-IdIntMainOptType = 2
-IdIntEntryOptType = 3
+IdIntMainOptType = 253
+IdIntEntryOptType = 254
 
 _inst_bitmap = {
     2**(3 - 0): "node_id",
@@ -117,10 +117,10 @@ class MetadataLenField(BitField):
     representation is encoded as follows:
     Size     Encoding
     0 bytes  000b
-    2 bytes  100b
-    4 bytes  101b
-    6 bytes  110b
-    8 bytes  111b
+    2 bytes  001b
+    4 bytes  010b
+    6 bytes  011b
+    8 bytes  100b
     """
 
     __slots__ = ["length_of"]
@@ -137,10 +137,10 @@ class MetadataLenField(BitField):
             x = 0
         if x not in [0, 2, 4, 6, 8]:
             raise Exception("Invalid metadata field length")
-        return 4 + ((x - 2) >> 1) if x > 0 else 0
+        return x >> 1
 
     def m2i(self, pkt, x: int) -> int:
-        return ((x - 4) << 1) + 2 if x > 0 else 0
+        return x << 1
 
 
 class MetadataPadField(Field[bytes, bytes]):
@@ -205,7 +205,7 @@ class IdIntEntry(Packet):
         MetadataLenField("ml2", length_of="md2"),
         MetadataLenField("ml3", length_of="md3"),
         MetadataLenField("ml4", length_of="md4"),
-        ConditionalField(XStrFixedLenField("nonce", default=12*b"\x00", length=12),
+        ConditionalField(IntegerField("nonce", default=0, sz=12),
             lambda pkt: pkt.flags.encrypted),
         ConditionalField(IntField("node_id", default=0), lambda pkt: pkt.mask.node_id),
         ConditionalField(ShortField("node_cnt", default=0), lambda pkt: pkt.mask.node_cnt),
@@ -310,7 +310,7 @@ class IdIntOption(Packet):
             2: "source"
         }),
         BitEnumField("vt", default="IP", size=2, enum=scion.SCION.address_types),
-        BitScalingField("vl", default=4, size=2, scaling=4, offset=4, unit="bytes"),
+        BitField("vl", default=0, size=2),
         ByteField("stack_len", default=None),
         ByteField("tos", default=None),
         BitField("delay_hops", default=0, size=6),
@@ -320,19 +320,19 @@ class IdIntOption(Packet):
         BitEnumField("af2", default=0, size=3, enum=_aggregation_functions),
         BitEnumField("af3", default=0, size=3, enum=_aggregation_functions),
         BitEnumField("af4", default=0, size=3, enum=_aggregation_functions),
-        ByteEnumField("inst1", default=0xff, enum=_instructions),
-        ByteEnumField("inst2", default=0xff, enum=_instructions),
-        ByteEnumField("inst3", default=0xff, enum=_instructions),
-        ByteEnumField("inst4", default=0xff, enum=_instructions),
+        ByteEnumField("inst1", default=0, enum=_instructions),
+        ByteEnumField("inst2", default=0, enum=_instructions),
+        ByteEnumField("inst3", default=0, enum=_instructions),
+        ByteEnumField("inst4", default=0, enum=_instructions),
         IntegerField("source_ts", default=time.time_ns() % (2**48), sz=6),
         ShortField("source_port", default=0),
         ConditionalField(ShortField("verif_isd", default=1), lambda pkt: pkt.verifier == 0),
         ConditionalField(AsnField("verif_asn", default="ff00:0:1"), lambda pkt: pkt.verifier == 0),
         ConditionalField(MultipleTypeField([
             (IPField("verif_host", default="127.0.0.1"),
-             lambda pkt: pkt.vt == 0 and pkt.vl == 4),
+             lambda pkt: pkt.vt == 0 and pkt.vl == 0),
             (IP6Field("verif_host", default="::1"),
-             lambda pkt: pkt.vt == 0 and pkt.vl == 16)],
+             lambda pkt: pkt.vt == 0 and pkt.vl == 3)],
             XStrLenField("verif_host", default=None, length_from=lambda pkt: pkt.vl)
         ), lambda pkt: pkt.verifier == 0),
         PacketListField("stack", default=[], length_from=lambda pkt: 4*pkt.stack_len,
@@ -362,7 +362,7 @@ class IdIntOption(Packet):
         if self.data_len is None:
             hdr_len = 22
             if self.verifier == 0:
-                hdr_len += 8 + self.vl
+                hdr_len += 8 + 4 * (self.vl + 1)
             hdr = hdr[:1] + hdr_len.to_bytes(1, byteorder='big') + hdr[2:]
         return hdr + payload
 
