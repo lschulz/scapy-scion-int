@@ -132,3 +132,69 @@ class TestScionProcessing(unittest.TestCase):
             SCIONPath.derive_hf_mac_key(b"IAOYbTs/CobLFV3T3jt6lQ=="),
             b"xEg7WN/vMCn+ccb3P7O/5A=="
         )
+
+
+class TestScionProcessingPeering(unittest.TestCase):
+    keys = {
+        "ff00:0:2": SCIONPath.derive_hf_mac_key(b"EYDAaz+kjU3oRjIbpKb9KA=="),
+        "ff00:0:3": SCIONPath.derive_hf_mac_key(b"KaOWYQzTRKxth6snjkpC6w=="),
+        "ff00:0:4": SCIONPath.derive_hf_mac_key(b"PS9v/wDN+MtPxUMETmSD0Q=="),
+        "ff00:0:6": SCIONPath.derive_hf_mac_key(b"sqjs0d5RR4WZ9xVYPJQe3w=="),
+        "ff00:0:7": SCIONPath.derive_hf_mac_key(b"h5uncRJpiDD2fbD849HG1g=="),
+        "ff00:0:8": SCIONPath.derive_hf_mac_key(b"LozRH4FpmlEj4JJpo4IQLg=="),
+    }
+    path_keys = [
+        # up
+        keys["ff00:0:4"], keys["ff00:0:3"], keys["ff00:0:2"],
+        # down
+        keys["ff00:0:6"], keys["ff00:0:7"], keys["ff00:0:8"],
+    ]
+
+    def test_peering_path_processing(self):
+        """Test processing of a SCION path containing a peering link"""
+
+        pkts = rdpcap(str(Path(__file__).parent / "reference_pkts_peering.pcap"))
+        p = pkts[0][SCION].path.copy()
+
+        # Up Segment
+        # Hop br1-ff00_0_4-1#1 > br1-ff00_0_3-2#2 | curr_hf = 1
+        p.egress(self.keys["ff00:0:4"])
+        self.assertEqual(list(compare_layers(p, pkts[1][SCION].path)), [])
+
+        # Hop br1-ff00_0_3-2#i > br1-ff00_0_3-1#i | info_fields[0]/segid= 31823
+        p.ingress(self.keys["ff00:0:3"])
+        self.assertEqual(list(compare_layers(p, pkts[2][SCION].path)), [])
+
+        # Hop br1-ff00_0_3-1#1 > br1-ff00_0_2-2#2 | curr_hf = 2
+        p.egress(self.keys["ff00:0:3"])
+        self.assertEqual(list(compare_layers(p, pkts[3][SCION].path)), [])
+
+        # Special peering rules
+        # Hop br1-ff00_0_2-2#i > br1-ff00_0_2-3#i |
+        p.ingress(self.keys["ff00:0:2"])
+        self.assertEqual(list(compare_layers(p, pkts[4][SCION].path)), [])
+
+        # Hop br1-ff00_0_2-3#3 > br2-ff00_0_6-3#3 | curr_inf= 1 curr_hf = 3
+        p.egress(self.keys["ff00:0:2"])
+        self.assertEqual(list(compare_layers(p, pkts[5][SCION].path)), [])
+
+        # Hop br2-ff00_0_6-3#i > br2-ff00_0_6-2#i |
+        p.ingress(self.keys["ff00:0:6"])
+        self.assertEqual(list(compare_layers(p, pkts[6][SCION].path)), [])
+
+        # Hop br2-ff00_0_6-2#2 > br2-ff00_0_7-1#1 | curr_hf = 4
+        p.egress(self.keys["ff00:0:6"])
+        self.assertEqual(list(compare_layers(p, pkts[7][SCION].path)), [])
+
+        # Down Segment
+        # Hop br2-ff00_0_7-1#i > br2-ff00_0_7-2#i |
+        p.ingress(self.keys["ff00:0:7"])
+        self.assertEqual(list(compare_layers(p, pkts[8][SCION].path)), [])
+
+        # Hop br2-ff00_0_7-2#2 > br2-ff00_0_8-1#1 | curr_hf = 5 info_fields[1]/segid= 59436
+        p.egress(self.keys["ff00:0:7"])
+        self.assertEqual(list(compare_layers(p, pkts[9][SCION].path)), [])
+
+        # Hop br2-ff00_0_8-1#i > Destination      |
+        p.ingress(self.keys["ff00:0:8"])
+        self.assertEqual(list(compare_layers(p, pkts[10][SCION].path)), [])

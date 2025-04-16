@@ -230,6 +230,9 @@ class SCIONPath(Packet):
     def init_path(self, keys: List, seeds: List[bytes] = []) -> None:
         """"Initialize the MAC and SegID fields.
 
+        Does not work for shortcut or peering paths as some hop fields would
+        need to be chained to hop fields that are not part of the header.
+
         ### Parameters
         keys: AS keys for the MAC computation in order of the hop fields
             as they appear in the header.
@@ -253,6 +256,22 @@ class SCIONPath(Packet):
                 beta = self._init_segment(inf, reversed(seg_hfs), reversed(seg_keys), seed)
                 inf.segid = int.from_bytes(beta[-2], byteorder='big')
 
+    def _is_peering(self):
+        """Detect if special rules for crossing a peering link must be applied.
+
+        Peering paths always contain two segments (up and down) and two special
+        peering hop fields at the end of the up segment and the beginning of the
+        down segment. The peering flag is set in both info fields.
+        """
+        if self.info_fields[self.curr_inf].flags.P:
+            if not self.info_fields[self.curr_inf].flags.C:
+                # up segment, peering hop is last of first segment
+                return self.curr_hf == (self.seg0_len - 1)
+            else:
+                # down segment, peering hop is first of second segment
+                return self.curr_hf == self.seg0_len
+        return False
+
     def egress(self, key: str|bytes) -> None:
         """Perform egress processing on the path as a border router would.
 
@@ -265,11 +284,14 @@ class SCIONPath(Packet):
         beta = self.info_fields[self.curr_inf].segid
         self._verify_hop_field(beta, key)
 
-        if self.info_fields[self.curr_inf].flags.C:
+        if self.info_fields[self.curr_inf].flags.C and not self._is_peering():
             sigma_trunc = self.hop_fields[self.curr_hf].mac >> 32
             self.info_fields[self.curr_inf].segid = beta ^ sigma_trunc
 
         self.curr_hf += 1
+        if self.info_fields[self.curr_inf].flags.P and self.curr_hf == self.seg0_len:
+            # Peering special case: advance to next segment in egress
+            self.curr_inf += 1
 
     def ingress(self, key: str|bytes) -> None:
         """Perform ingress processing on the path as a border router would.
@@ -280,27 +302,29 @@ class SCIONPath(Packet):
         ### Exceptions
         SCIONPath.VerificationError: Hop field verification failed.
         """
-        if not self.info_fields[self.curr_inf].flags.C:
+        is_peering = self._is_peering()
+        if self.info_fields[self.curr_inf].flags.C or is_peering:
+            beta = self.info_fields[self.curr_inf].segid
+        else:
             sigma_trunc = self.hop_fields[self.curr_hf].mac >> 32
             beta = self.info_fields[self.curr_inf].segid ^ sigma_trunc
-        else:
-            beta = self.info_fields[self.curr_inf].segid
 
         self._verify_hop_field(beta, key)
 
-        if not self.info_fields[self.curr_inf].flags.C:
+        if not self.info_fields[self.curr_inf].flags.C and not is_peering:
             self.info_fields[self.curr_inf].segid = beta
 
         # Switch to the next path segment if necessary
-        seg_offsets = [
-            self.seg0_len,
-            self.seg0_len + self.seg1_len,
-            self.seg0_len + self.seg1_len + self.seg2_len
-        ]
-        next_hf = self.curr_hf + 1
-        if next_hf < seg_offsets[2] and next_hf == seg_offsets[self.curr_inf]:
-            self.curr_hf = next_hf
-            self.curr_inf += 1
+        if not is_peering:
+            seg_offsets = [
+                self.seg0_len,
+                self.seg0_len + self.seg1_len,
+                self.seg0_len + self.seg1_len + self.seg2_len
+            ]
+            next_hf = self.curr_hf + 1
+            if next_hf < seg_offsets[2] and next_hf == seg_offsets[self.curr_inf]:
+                self.curr_hf = next_hf
+                self.curr_inf += 1
 
 
 #########################
