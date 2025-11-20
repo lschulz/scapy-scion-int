@@ -14,9 +14,9 @@ authors = [
 ]
 description = "SCION and in-band network telemetry layers for Scapy"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
-    "scapy==2.5.0",
+    "scapy>=2.6.1",
     "cryptography>=39.0.0"
 ]
 classifiers = [

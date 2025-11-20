@@ -18,8 +18,8 @@ Supported headers:
 Some SCION tools built with Scapy are available in [tools](/tools).
 
 ### Dependencies
-- Python >= 3.10
-- [Scapy](https://scapy.net/) (2.5.0)
+- Python >= 3.12
+- [Scapy](https://scapy.net/) (2.6.1)
 - Additional Python packages:
     - cryptography (39.0.0)
 
