@@ -463,6 +463,15 @@ class SCION(Packet):
 
         return hdr + payload
 
+    def answers(self, other: Packet):
+        if not isinstance(other, SCION):
+            return False
+        if self.dst_isd != other.src_isd or self.dst_asn != other.src_asn:
+            return False
+        if self.dst_host != other.src_host:
+            return False
+        return self.payload.answers(other.payload)
+
 
 ##########################
 ## SCION Option Headers ##

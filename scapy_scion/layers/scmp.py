@@ -253,12 +253,13 @@ class SCMP(Packet):
 
     def answers(self, other):
         if isinstance(other, SCMP):
-            if self.Code == SCMP.TypeEchoRequest and SCMP.TypeEchoReply:
-                return (other.EchoRequest.id == self.EchoRequest.id
-                    and other.EchoRequest.seq == self.EchoRequest.seq)
-            elif other.Code == SCMP.TypeTracerouteRequest and self.Code == SCMP.TypeTracerouteReply:
-                return (other.EchoRequest.id == self.EchoRequest.id
-                    and other.EchoRequest.seq == self.EchoRequest.seq)
+            if self.type == SCMP.TypeEchoReply and isinstance(other.message, ScmpEchoRequest):
+                return (other.message.id == self.message.id
+                    and other.message.seq == self.message.seq)
+            elif (self.type == SCMP.TypeTracerouteReply
+                  and isinstance(other.message, ScmpTracerouteRequest)):
+                return (other.message.id == self.message.id
+                    and other.message.seq == self.message.seq)
         return False
 
     def guess_payload_class(self, payload):

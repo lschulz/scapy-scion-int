@@ -53,21 +53,28 @@ library.**
 
 Getting Started: Craft and Send a SCION Packet
 ----------------------------------------------
+This example assumes the "tiny4" topology running on localhost. You can recreate this setup by
+running the following in the SCION repository.
+```
+./scion.sh topology -c topology/tiny4.topo
+./scion.sh run
+```
+
 1. Ping the target AS.
 
-Replace `127.0.0.27:30255` with the address of your SCION daemon and the destination AS with the AS
+Replace `127.0.0.19:30255` with the address of your SCION daemon and the destination AS with the AS
 you want to send packets to.
 ```
-bin/scion ping --sciond 127.0.0.27:30255 2-ff00:0:211,127.0.0.1
+scion ping --sciond 127.0.0.19:30255 1-ff00:0:112,127.0.0.1 -c 1
 ```
 
 2. Launch Scapy in a second terminal and capture one of the echo requests.
 
-Replace IP `127.0.0.25` and port `31014` with the internal address of your border router.
+Replace IP `127.0.0.17` and port `31008` with the internal address of your border router.
 ```
 sudo ./scapy-scion
 pkts = sniff(iface="lo",
-    filter="host 127.0.0.25 and port 31014",
+    filter="host 127.0.0.17 and port 31008",
     lfilter=lambda pkt: pkt.haslayer(SCMP) and pkt[SCMP].type==128,
     prn=lambda pkt: pkt.summary(), count=1)
 ```
@@ -85,15 +92,10 @@ del p[SCION].plen
 ```
 
 4. Build a new packet (e.g., a new echo request) and send it.
-
-Changing `conf.L3Socket` to `L3RawSocket` is required in order to send packets to local
-applications.
-Refer to this [FAQ](https://scapy.readthedocs.io/en/latest/troubleshooting.html#i-can-t-ping-127-0-0-1-scapy-does-not-work-with-127-0-0-1-or-on-the-loopback-interface).
 ```
-req = p/SCMP(message=EchoRequest(id=0xabcd))/Raw(b"Hello!")
+req = p/SCMP(message=ScmpEchoRequest(id=p[UDP].sport))/Raw(b"Hello!")
 req[SCION].dl = 0
 req[SCION].dst_host = "127.0.0.2"
-conf.L3socket = L3RawSocket
-resp = sr1(req, iface="lo", timeout=1)
+resp = sr1(req, timeout=1)
 resp.show()
 ```
