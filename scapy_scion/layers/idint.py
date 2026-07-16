@@ -44,36 +44,52 @@ _instructions = {
     0x42: "device_model",
     0x43: "software_version",
     0x44: "node_ipv4_addr",
-    0x45: "ingress_if_speed",
-    0x46: "egress_if_speed",
+    0x45: "ingress_port_speed",
+    0x46: "egress_port_speed",
     0x47: "gps_lat",
     0x48: "gps_long",
     0x49: "uptime",
-    0x4A: "fwd_energy",
-    0x4B: "co2_emission",
+    0x4A: "rtt_next_br",
+    0x4B: "rtt_prev_br",
     0x4C: "ingress_link_rx",
-    0x4D: "egress_link_tx",
-    0x4E: "queue_id",
-    0x4F: "inst_queue_len",
-    0x50: "avg_queue_len",
-    0x51: "buffer_id",
-    0x52: "inst_buffer_occ",
-    0x53: "avg_buffer_occ",
+    0x4D: "ingress_link_tx",
+    0x4E: "egress_link_rx",
+    0x4F: "egress_link_tx",
+    0x50: "queue_id",
+    0x51: "inst_queue_len",
+    0x52: "avg_queue_len",
+    0x53: "buffer_id",
+    0x54: "inst_buffer_occ",
+    0x55: "avg_buffer_occ",
+    0x56: "fwd_energy",
+    0x57: "co2_emission",
     0x81: "asn",
     0x82: "ingress_tstamp",
     0x83: "egress_tstamp",
-    0x84: "ig_scif_pkt_cnt",
-    0x85: "eg_scif_pkt_cnt",
-    0x86: "ig_scif_pkt_drop",
-    0x87: "eg_scif_pkt_drop",
-    0x88: "ig_scif_bytes",
-    0x89: "eg_scif_bytes",
-    0x8A: "ig_pkt_cnt",
-    0x8B: "eg_pkt_cnt",
-    0x8C: "ig_pkt_drop",
-    0x8D: "eg_pkt_drop",
-    0x8E: "ig_bytes",
-    0x8F: "eg_bytes",
+    0x84: "ig_br_if_rx_pkts",
+    0x85: "ig_br_if_rx_bytes",
+    0x86: "ig_br_if_rx_dropped",
+    0x87: "ig_br_if_tx_pkts",
+    0x88: "ig_br_if_tx_bytes",
+    0x89: "ig_br_if_tx_dropped",
+    0x8A: "eg_br_if_rx_pkts",
+    0x8B: "eg_br_if_rx_bytes",
+    0x8C: "eg_br_if_rx_dropped",
+    0x8D: "eg_br_if_tx_pkts",
+    0x8E: "eg_br_if_tx_bytes",
+    0x8F: "eg_br_if_tx_dropped",
+    0x90: "ig_port_rx_pkts",
+    0x91: "ig_port_rx_bytes",
+    0x92: "ig_port_rx_dropped",
+    0x93: "ig_port_tx_pkts",
+    0x94: "ig_port_tx_bytes",
+    0x95: "ig_port_tx_dropped",
+    0x96: "eg_port_rx_pkts",
+    0x97: "eg_port_rx_bytes",
+    0x98: "eg_port_rx_dropped",
+    0x99: "eg_port_tx_pkts",
+    0x9A: "eg_port_tx_bytes",
+    0x9B: "eg_port_tx_dropped",
     0xC1: "node_ipv6_addr_h",
     0xC2: "node_ipv6_addr_l",
 }
@@ -238,7 +254,8 @@ class IdIntEntry(Packet):
 
     def post_build(self, hdr: bytes, payload: bytes):
         if self.data_len is None:
-            hdr = hdr[:1] + self.length().to_bytes(1, byteorder='big') + hdr[2:]
+            data_len = self.length() - 2
+            hdr = hdr[:1] + data_len.to_bytes(1, byteorder='big') + hdr[2:]
         return hdr + payload
 
     def extract_padding(self, s: bytes) -> Tuple[bytes, Optional[bytes]]:
@@ -345,8 +362,7 @@ class IdIntOption(Packet):
         else:
             n = self.stack_length() // 4
             if n < self.stack_len:
-                m = self.stack_len - n
-                self.stack.append(scion.PadNOption(data=(4 * m - 2) * b"\x00"))
+                self._append_padding(4 * (self.stack_len - n))
 
         if self.tos is None:
             tos = self.stack_entries() - 1
@@ -358,9 +374,21 @@ class IdIntOption(Packet):
 
         return super().self_build()
 
+    def _append_padding(self, n):
+        i = 0
+        while i < n:
+            remaining = n - i
+            if remaining == 1:
+                self.stack.append(scion.Pad1Option())
+                i += 1
+            else:
+                m = min(remaining - 2, 255)
+                self.stack.append(scion.PadNOption(data=m * b"\x00"))
+                i += m + 2
+
     def post_build(self, hdr: bytes, payload: bytes):
         if self.data_len is None:
-            hdr_len = 22
+            hdr_len = 20
             if self.verifier == 0:
                 hdr_len += 8 + 4 * (self.vl + 1)
             hdr = hdr[:1] + hdr_len.to_bytes(1, byteorder='big') + hdr[2:]
