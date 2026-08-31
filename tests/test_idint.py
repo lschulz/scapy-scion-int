@@ -36,13 +36,13 @@ class TestIDINT(unittest.TestCase):
         opts = p[HopByHopExt].options
         self.assertEqual(len(opts), 1)
         self.assertIsInstance(opts[0], IdIntOption)
-        self.assertEqual(opts[0].data_len, 34)
+        self.assertEqual(opts[0].data_len, 32)
         self.assertEqual(opts[0].stack_len, 32)
         self.assertEqual(opts[0].tos, 0)
 
         stack = opts[0].stack
         self.assertIsInstance(stack[0], IdIntEntry)
-        self.assertEqual(stack[0].data_len, 24)
+        self.assertEqual(stack[0].data_len, 22)
         self.assertIsInstance(stack[1], PadNOption)
         self.assertEqual(stack[1].data_len, 102)
 
