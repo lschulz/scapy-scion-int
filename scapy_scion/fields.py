@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from ipaddress import IPv4Address, IPv6Address, ip_address
 from typing import Optional, Union
 
-from scapy.base_classes import Net
 from scapy.fields import ByteField, Field, IntField
 from scapy.volatile import RandField
 

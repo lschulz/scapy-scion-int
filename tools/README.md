@@ -1,5 +1,7 @@
-Tools for Examining SCION Traffic
-=================================
+Tools
+=====
+
+Custom Scapy tools for examining SCION traffic and services.
 
 Local SCION Packet Tracing
 --------------------------
@@ -47,4 +49,44 @@ Hop br3-ff00_0_5-2#2 > br3-ff00_0_6-1#1 | CurrHF  = 7 InfoFields[2]/SegID= 59853
 Hop br3-ff00_0_6-1#i > br3-ff00_0_6-2#i |
 Hop br3-ff00_0_6-2#2 > br3-ff00_0_7-1#1 | CurrHF  = 8 InfoFields[2]/SegID= 13333
 Hop br3-ff00_0_7-1#i > Destination      |
+```
+
+SCION Border Router STUN Scanner
+--------------------------------
+[stunscanner.py](./stunscanner.py)
+
+Scans a range of IPs and ports for possible SCION border routers by sending a STUN binding request.
+
+Example:
+```bash
+$ stunscanner.py 127.0.0.0/24 31000-31020
+127.0.0.9 31002 open (xip=127.0.0.1, xport=61382)
+127.0.0.10 31004 open (xip=127.0.0.1, xport=37092)
+127.0.0.17 31008 open (xip=127.0.0.1, xport=54885)
+Valid: 3, Open: 0, Closed: 5371, Filtered: 2
+```
+
+Usage:
+```
+usage: stunscanner [-h] [-a] [-s SPORT] [-t TIMEOUT] [-f] [-F] target [port]
+
+Scans a range of IPs and ports for possible SCION border routers by sending a STUN binding request.
+
+positional arguments:
+  target                Target address. May be a single IP address (127.0.0.1), a subnet (127.0.0.0/24), or a range of addresses (127.0.0.1-127.0.0.10).
+  port                  Target ports. May be a single port (3478), a port range (3478-3479) or a list of ports (3478,3479,31000-310010). If no other ports
+                        are given, the default STUN port 3478 is probed.
+
+options:
+  -h, --help            show this help message and exit
+  -a, --all             Print all scanned ports even if filtered or closed.
+  -s SPORT, --sport SPORT
+                        Source port of request packets. By default random ports above 32768, changing with every packet.
+  -t TIMEOUT, --timeout TIMEOUT
+                        Receive timeout after the last packet has been sent.
+  -f, --no-fingerprint  Do not include the FINGERPRINT attribute in the binding request. Border routers do not normally answer such packets, but generic
+                        STUN servers do.
+  -F, --wrong-fingerprint
+                        Include the FINGERPRINT attribute with an incorrect CRC32. Border routers do not normally answer such packets, but other STUN
+                        servers might.
 ```

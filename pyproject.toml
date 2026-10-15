@@ -8,7 +8,7 @@ namespaces = false
 
 [project]
 name = "scapy-scion"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
     { name="Lars-Christian Schulz", email="lschulz@ovgu.de" },
 ]
@@ -16,7 +16,7 @@ description = "SCION and in-band network telemetry layers for Scapy"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "scapy>=2.6.1",
+    "scapy>=2.8.0",
     "cryptography>=39.0.0"
 ]
 classifiers = [

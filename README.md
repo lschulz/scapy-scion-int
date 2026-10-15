@@ -19,7 +19,7 @@ Some SCION tools built with Scapy are available in [tools](/tools).
 
 ### Dependencies
 - Python >= 3.12
-- [Scapy](https://scapy.net/) (2.6.1)
+- [Scapy](https://scapy.net/) (2.8.0)
 - Additional Python packages:
     - cryptography (39.0.0)
 
@@ -48,7 +48,7 @@ stack are bound to the SCION layer.
 [1]: https://github.com/scionproto/scion/wiki/Default-port-ranges
 
 **Importing `scapy_scion.layers.scion` breaks the association of IP/IPv6 with `inet.UDP` and
-replaces it with `scion.UDP`. Make sure to import `scion.UDP` insted of `inet.UDP` when using this
+replaces it with `scion.UDP`. Make sure to import `scion.UDP` instead of `inet.UDP` when using this
 library.**
 
 Getting Started: Craft and Send a SCION Packet

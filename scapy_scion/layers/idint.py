@@ -415,7 +415,7 @@ class IdIntOption(Packet):
         """Returns the allocated length of the telemetry stack in bytes."""
         length = 0
         for opt in self.stack:
-            if type(opt) == IdIntEntry:
+            if type(opt) is IdIntEntry:
                 length += opt.length()
             else:
                 length += len(bytes(opt))
@@ -424,7 +424,7 @@ class IdIntOption(Packet):
     def stack_entries(self) -> int:
         """Returns the number of telemetry stack entries."""
         count = 0
-        while count < len(self.stack) and type(self.stack[count]) == IdIntEntry:
+        while count < len(self.stack) and type(self.stack[count]) is IdIntEntry:
             count += 1
         return count
 

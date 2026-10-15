@@ -67,7 +67,7 @@ class ASN:
         return self.asn_int.to_bytes(self.BITS // 8, byteorder='big')
 
     def __eq__(self, other):
-        if type(self) != type(other):
+        if type(self) is type(other):
             return False
         else:
             return self.asn_int == other.asn_int
